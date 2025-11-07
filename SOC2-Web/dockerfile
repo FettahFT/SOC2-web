@@ -2,20 +2,14 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy project files
-COPY ["ShadeOfColor2/ShadeOfColor2.csproj", "ShadeOfColor2/"]
-COPY ["ShadeOfColor2.sln", "./"]
-
-# Restore packages
-RUN dotnet restore "ShadeOfColor2/ShadeOfColor2.csproj"
-
-# Copy everything else
+# Copy source files (excluding bin/obj via .dockerignore)
 COPY . .
 
-# Publish
-RUN dotnet publish "ShadeOfColor2/ShadeOfColor2.csproj" \
+# Restore and publish in one step to avoid Windows path issues
+RUN dotnet publish "ShadeOfColor2.API/ShadeOfColor2.API.csproj" \
     -c Release \
-    -o /app/publish
+    -o /app/publish \
+    --verbosity minimal
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
@@ -30,4 +24,4 @@ COPY --from=build /app/publish .
 EXPOSE 80
 ENV ASPNETCORE_URLS=http://+:80
 
-ENTRYPOINT ["dotnet", "ShadeOfColor2.dll"]
+ENTRYPOINT ["dotnet", "ShadeOfColor2.API.dll"]
