@@ -6,7 +6,7 @@ WORKDIR /src
 COPY . .
 
 # Restore and publish in one step to avoid Windows path issues
-RUN dotnet publish "ShadeOfColor2.API/ShadeOfColor2.API.csproj" \
+RUN dotnet publish "SOC2-Web/ShadeOfColor2.API/ShadeOfColor2.API.csproj" \
     -c Release \
     -o /app/publish \
     --verbosity minimal
