@@ -1,1 +1,12 @@
+bin/
+obj/
+*.user
 .vs/
+.vscode/
+node_modules/
+build/
+dist/
+*.log
+.env.local
+.env.production
+*.cache
