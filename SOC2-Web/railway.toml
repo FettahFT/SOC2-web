@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "SOC2-Web/dockerfile"
+dockerfilePath = "Dockerfile"
 
 
 [deploy]
