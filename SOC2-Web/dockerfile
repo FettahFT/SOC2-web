@@ -3,17 +3,18 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy project files
-COPY ["ShadeOfColor2/ShadeOfColor2.csproj", "ShadeOfColor2/"]
-COPY ["ShadeOfColor2.sln", "./"]
+COPY ["SOC2-Web/ShadeOfColor2.API/ShadeOfColor2.API.csproj", "ShadeOfColor2.API/"]
+COPY ["SOC2-Web/SOC2-web.Core/SOC2-web.Core.csproj", "SOC2-web.Core/"]
+COPY ["SOC2-Web/SOC2-web.sln", "./"]
 
 # Restore packages
-RUN dotnet restore "ShadeOfColor2/ShadeOfColor2.csproj"
+RUN dotnet restore "ShadeOfColor2.API/ShadeOfColor2.API.csproj"
 
 # Copy everything else
-COPY . .
+COPY SOC2-Web/ .
 
 # Publish
-RUN dotnet publish "ShadeOfColor2/ShadeOfColor2.csproj" \
+RUN dotnet publish "ShadeOfColor2.API/ShadeOfColor2.API.csproj" \
     -c Release \
     -o /app/publish
 
@@ -30,4 +31,4 @@ COPY --from=build /app/publish .
 EXPOSE 80
 ENV ASPNETCORE_URLS=http://+:80
 
-ENTRYPOINT ["dotnet", "ShadeOfColor2.dll"]
+ENTRYPOINT ["dotnet", "ShadeOfColor2.API.dll"]
