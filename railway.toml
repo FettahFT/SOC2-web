@@ -1,6 +1,5 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "dotnet ShadeOfColor2.API.dll"
