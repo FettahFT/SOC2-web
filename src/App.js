@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Unlock, Upload, FileImage, CheckCircle, XCircle, Info } from 'lucide-react';
 import MatrixRain from './components/MatrixRain';
 import TypeWriter from './components/TypeWriter';
-import ClientImageProcessor from './ClientImageProcessor';
+import ClientImageProcessor from './services/ClientImageProcessor';
 import './App.css';
 
 function App() {
@@ -247,22 +247,24 @@ function App() {
                       : 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-black shadow-[0_0_30px_rgba(0,255,65,0.4)] hover:shadow-[0_0_50px_rgba(0,255,65,0.6)]'
                   }`}
                 >
-                  {loading ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <span className="text-sm font-mono">{progress}%</span>
-                      <span>PROCESSING...</span>
-                    </div>
-                  ) : (
-                      <span className="flex items-center justify-center gap-3">
+                  <span className="relative z-10 flex items-center justify-center gap-3">
+                    {loading ? (
+                      <>
+                        <span className="text-sm font-mono">{progress}%</span>
+                        <span>PROCESSING...</span>
+                      </>
+                    ) : (
+                      <>
                         {mode === 'crypt' ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
                         {mode === 'crypt' ? 'HIDE IN PNG' : 'EXTRACT FROM PNG'}
-                      </span>
-                  )}
+                      </>
+                    )}
+                  </span>
 
                   {/* Progress Fill */}
                   {loading && (
                     <div
-                      className="absolute inset-0 bg-gradient-to-r from-green-600 to-green-500 transition-all duration-500 ease-out rounded-lg"
+                      className="absolute inset-0 bg-gradient-to-r from-green-500 to-green-400 opacity-40 transition-all duration-500 ease-out rounded-lg"
                       style={{ width: `${progress}%` }}
                     />
                   )}
@@ -336,8 +338,15 @@ function App() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center mt-12 text-green-800 text-sm">
-          <p>&gt; ShadeOfColor2 - MIT License - github.com/archistico</p>
+        <footer className="text-center mt-12 text-green-600 text-sm">
+          <a 
+            href="https://github.com/archistico/ShadeOfColor2" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="hover:text-green-400 hover:underline"
+          >
+            &gt; Fork of ShadeOfColor2 by @archistico
+          </a>
         </footer>
       </div>
     </div>
