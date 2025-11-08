@@ -10,7 +10,6 @@ function App() {
 
 
   const [file, setFile] = useState(null);
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
@@ -85,12 +84,6 @@ function App() {
   const handleProcess = async () => {
     if (!file) return;
 
-    // Require password for all operations
-    if (!password.trim()) {
-      setResult({ success: false, message: 'Password is required for all operations.' });
-      return;
-    }
-
     setLoading(true);
     setProgress(0);
     setResult(null);
@@ -102,7 +95,6 @@ function App() {
 
     const formData = new FormData();
     formData.append(mode === 'crypt' ? 'file' : 'image', file);
-    formData.append('password', password.trim());
 
     try {
       const endpoint = mode === 'crypt' ? '/api/hide' : '/api/extract';
@@ -226,11 +218,11 @@ function App() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
           <div className="text-center">
             <h1 className="text-6xl font-bold mb-4 text-green-400">
-              <TypeWriter text="SHADE_OF_COLOR_2" delay={80} />
-            </h1>
-            <p className="text-xl text-green-500">
-              <TypeWriter text="> Steganography Protocol Initialized..." delay={50} />
-            </p>
+               <TypeWriter text="SHADE_OF_COLOR_2" delay={80} />
+             </h1>
+             <p className="text-xl text-green-500">
+               <TypeWriter text="> Steganography System Online..." delay={50} />
+             </p>
           </div>
         </div>
       )}
@@ -242,9 +234,9 @@ function App() {
             <h1 className="text-5xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-white drop-shadow-[0_0_20px_rgba(0,255,65,0.5)]">
               SHADE_OF_COLOR_2
             </h1>
-            <p className="text-sm text-green-500 tracking-widest">
-              &gt; FILE STEGANOGRAPHY SYSTEM v2.0
-            </p>
+             <p className="text-sm text-green-500 tracking-widest">
+               &gt; FILE STEGANOGRAPHY SYSTEM v2.0 (NO ENCRYPTION)
+             </p>
           </div>
         </header>
 
@@ -253,22 +245,22 @@ function App() {
           <div className="backdrop-blur-xl bg-black/30 border border-green-500/30 rounded-lg p-1 shadow-[0_0_30px_rgba(0,255,65,0.15)]">
             <div className="mode-selector-container grid grid-cols-2 gap-2">
               <div className={`moving-border ${mode === 'decrypt' ? 'decrypt' : ''}`}></div>
-              <button
-                onClick={() => setMode('crypt')}
-                className="mode-selector-button flex items-center justify-center gap-2 py-4 px-6 text-green-400"
-                style={{ outline: 'none', boxShadow: 'none', border: 'none', backgroundColor: 'transparent' }}
-              >
-                <Lock className="w-5 h-5" />
-                <span className="font-semibold tracking-wider">ENCRYPT</span>
-              </button>
-              <button
-                onClick={() => setMode('decrypt')}
-                className="mode-selector-button flex items-center justify-center gap-2 py-4 px-6 text-green-400"
-                style={{ outline: 'none', boxShadow: 'none', border: 'none', backgroundColor: 'transparent' }}
-              >
-                <Unlock className="w-5 h-5" />
-                <span className="font-semibold tracking-wider">DECRYPT</span>
-              </button>
+               <button
+                 onClick={() => setMode('crypt')}
+                 className="mode-selector-button flex items-center justify-center gap-2 py-4 px-6 text-green-400"
+                 style={{ outline: 'none', boxShadow: 'none', border: 'none', backgroundColor: 'transparent' }}
+               >
+                 <Lock className="w-5 h-5" />
+                 <span className="font-semibold tracking-wider">HIDE</span>
+               </button>
+               <button
+                 onClick={() => setMode('decrypt')}
+                 className="mode-selector-button flex items-center justify-center gap-2 py-4 px-6 text-green-400"
+                 style={{ outline: 'none', boxShadow: 'none', border: 'none', backgroundColor: 'transparent' }}
+               >
+                 <Unlock className="w-5 h-5" />
+                 <span className="font-semibold tracking-wider">EXTRACT</span>
+               </button>
             </div>
           </div>
         </div>
@@ -276,24 +268,7 @@ function App() {
         {/* Main Interface */}
         <div className="max-w-4xl mx-auto">
           <div className="backdrop-blur-2xl bg-gradient-to-br from-black/50 to-green-950/10 border border-green-500/30 rounded-2xl p-8 shadow-[0_0_50px_rgba(0,255,65,0.2)]">
-            {/* Password Input */}
-            <div className="mb-6">
-              <label htmlFor="password" className="block text-sm font-semibold text-green-400 mb-2">
-                Password *
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password for encryption/decryption"
-                required
-                className="w-full px-4 py-3 bg-black/50 border border-green-500/40 rounded-lg text-green-400 placeholder-green-600 focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 transition-all duration-300"
-              />
-              <p className="text-xs text-green-600 mt-1">
-                Password is required for all operations. Use the same password for encrypt/decrypt.
-              </p>
-            </div>
+
 
             {/* Upload Area */}
             <div
@@ -327,13 +302,13 @@ function App() {
                 ) : (
                   <>
                     <Upload className="w-16 h-16 mx-auto mb-4 text-green-500/50 animate-pulse" />
-                    <p className="text-lg text-green-500 mb-2">
-                      {mode === 'crypt' ? 'Drop file to encrypt' : 'Drop PNG to decrypt'}
-                    </p>
-                    <p className="text-sm text-green-700">or click to browse</p>
-                    <p className="text-xs text-green-800 mt-2">
-                      Max: {mode === 'crypt' ? '10MB files' : '25MB images'}
-                    </p>
+                     <p className="text-lg text-green-500 mb-2">
+                       {mode === 'crypt' ? 'Drop file to hide in PNG' : 'Drop PNG to extract file'}
+                     </p>
+                     <p className="text-sm text-green-700">or click to browse</p>
+                     <p className="text-xs text-green-800 mt-2">
+                       Max: {mode === 'crypt' ? '10MB files' : '25MB images'}
+                     </p>
                   </>
                 )}
               </div>
@@ -357,10 +332,10 @@ function App() {
                       <span>PROCESSING...</span>
                     </div>
                   ) : (
-                    <span className="flex items-center justify-center gap-3">
-                      {mode === 'crypt' ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-                      {mode === 'crypt' ? 'ENCRYPT TO PNG' : 'DECRYPT FROM PNG'}
-                    </span>
+                     <span className="flex items-center justify-center gap-3">
+                       {mode === 'crypt' ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                       {mode === 'crypt' ? 'HIDE IN PNG' : 'EXTRACT FROM PNG'}
+                     </span>
                   )}
 
                   {/* Progress Fill */}
@@ -415,14 +390,15 @@ function App() {
           <div className="mt-8 backdrop-blur-xl bg-black/20 border border-green-500/20 rounded-lg p-6">
             <div className="flex items-start gap-3">
               <Info className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-green-700 space-y-2">
-                <p>&gt; Hide any file inside a PNG image</p>
-                <p>&gt; Embedded metadata: signature, size, filename, SHA256 hash</p>
-                <p>&gt; Cross-platform compatibility via ImageSharp</p>
-                <p className="text-xs text-green-800 mt-4">
-                  For privacy and experimentation. Use responsibly.
-                </p>
-              </div>
+               <div className="text-sm text-green-700 space-y-2">
+                 <p>&gt; Hide any file inside a PNG image using steganography</p>
+                 <p>&gt; Embedded metadata: signature, size, filename, SHA256 hash</p>
+                 <p>&gt; Cross-platform compatibility via ImageSharp</p>
+                 <p>&gt; Files are stored unencrypted for now</p>
+                 <p className="text-xs text-green-800 mt-4">
+                   For privacy and experimentation. Use responsibly.
+                 </p>
+               </div>
             </div>
           </div>
         </div>

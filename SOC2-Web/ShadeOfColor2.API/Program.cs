@@ -131,16 +131,13 @@ app.MapMethods("/api/extract", new[] { "OPTIONS" }, () => Results.Ok());
 app.MapMethods("/api/metadata", new[] { "OPTIONS" }, () => Results.Ok());
 
 // Encode endpoint - hide file in image
-app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor processor, CancellationToken cancellationToken) =>
+app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor, CancellationToken cancellationToken) =>
 {
     var startTime = DateTime.UtcNow;
     var initialMemory = GC.GetTotalMemory(false);
     Console.WriteLine($"[{startTime}] Hide endpoint accessed - File: {file?.FileName}, Initial Memory: {initialMemory / 1024 / 1024}MB");
     
     // Validate input
-    if (string.IsNullOrWhiteSpace(password))
-        return Results.Ok(new { error = "Password is required" });
-
     var validationError = ValidateUploadedFile(file!);
     if (validationError != null)
         return Results.Ok(new { error = validationError });
@@ -170,7 +167,7 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
         var encodedImage = await processor.CreateCarrierImageAsync(
             fileStream,
             Path.GetFileName(file!.FileName),
-            password,
+            null, // No password
             cancellationToken
         );
 
@@ -259,7 +256,7 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
 .Produces(400);
 
 // Decode endpoint - extract file from image
-app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string? password, IImageProcessor processor, CancellationToken cancellationToken) =>
+app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageProcessor processor, CancellationToken cancellationToken) =>
 {
     var startTime = DateTime.UtcNow;
     var initialMemory = GC.GetTotalMemory(false);
@@ -269,8 +266,6 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string?
     var validationError = ValidateUploadedImage(image!);
     if (validationError != null)
         return Results.Ok(new { error = validationError });
-
-    Console.WriteLine($"[{DateTime.UtcNow}] Extract - Password provided: {!string.IsNullOrWhiteSpace(password)}");
 
     // Check available memory before processing large images
     var availableMemory = GC.GetTotalMemory(false);
@@ -292,7 +287,7 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string?
         Console.WriteLine($"[{DateTime.UtcNow}] First 20 bytes: {Convert.ToHexString(buffer[..bytesRead])}");
         imageStream.Position = 0;
 
-        var extractedFile = await processor.ExtractFileAsync(imageStream, password, cancellationToken);
+        var extractedFile = await processor.ExtractFileAsync(imageStream, null, cancellationToken);
 
         // Use the original filename stored in the image (includes extension)
         var originalFileName = extractedFile.FileName;
