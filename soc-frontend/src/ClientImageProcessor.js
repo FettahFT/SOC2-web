@@ -71,6 +71,20 @@ class ClientImageProcessor {
     const imageData = ctx.getImageData(0, 0, imageSize, imageSize);
     this.writeBytesToImageData(imageData.data, totalData);
     ctx.putImageData(imageData, 0, 0);
+
+    // --- DEBUGGING BLOCK ---
+    console.log("--- Verifying data on the SAME canvas immediately after writing ---");
+    try {
+        const readBackImageData = ctx.getImageData(0, 0, imageSize, imageSize);
+        const headerInfo = this.readHeader(readBackImageData.data);
+        console.log("--- SAME CANVAS VERIFICATION SUCCESS ---");
+        console.log("Read back header successfully:", headerInfo);
+    } catch (error) {
+        console.error("--- SAME CANVAS VERIFICATION FAILED ---");
+        console.error("Error reading back header immediately:", error);
+    }
+    // --- END DEBUGGING BLOCK ---
+
     onProgress?.(90);
 
     // Convert to PNG blob
