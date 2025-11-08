@@ -89,14 +89,18 @@ function App() {
           usePassword,
           (p) => setProgress(p)
         );
+        
+        const baseName = file.name.lastIndexOf('.') > 0 ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
+        const filename = `${baseName}-encrypted.png`;
+        
         const url = window.URL.createObjectURL(pngBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `${file.name}.png`);
+        link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
         link.remove();
-        setResult({ success: true, filename: `${file.name}.png`, size: `${(pngBlob.size / 1024 / 1024).toFixed(2)} MB` });
+        setResult({ success: true, filename: filename, size: `${(pngBlob.size / 1024 / 1024).toFixed(2)} MB` });
       } else {
         const extracted = await ClientImageProcessor.extractFileAsync(
           file,
@@ -107,11 +111,24 @@ function App() {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', extracted.fileName);
+
+        const originalName = extracted.fileName;
+        const lastDotIndex = originalName.lastIndexOf('.');
+        let decryptedFilename;
+
+        if (lastDotIndex > 0) {
+          const baseName = originalName.substring(0, lastDotIndex);
+          const extension = originalName.substring(lastDotIndex);
+          decryptedFilename = `${baseName}-decrypted${extension}`;
+        } else {
+          decryptedFilename = `${originalName}-decrypted`;
+        }
+
+        link.setAttribute('download', decryptedFilename);
         document.body.appendChild(link);
         link.click();
         link.remove();
-        setResult({ success: true, filename: extracted.fileName, size: `${(blob.size / 1024 / 1024).toFixed(2)} MB` });
+        setResult({ success: true, filename: decryptedFilename, size: `${(blob.size / 1024 / 1024).toFixed(2)} MB` });
       }
     } catch (error) {
       setResult({ success: false, message: error.message });

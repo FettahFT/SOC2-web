@@ -110,10 +110,6 @@ class ClientImageProcessor {
           const imageData = ctx.getImageData(0, 0, img.width, img.height);
           const pixelData = imageData.data;
 
-          // --- DEBUGGING LOG: After drawImage on decoding canvas ---
-          console.log('DEBUG (Decoding): Raw pixelData after drawImage (first 16 bytes):', pixelData.slice(0, 16));
-          // --- END DEBUGGING LOG ---
-
           onProgress?.(20);
 
           // Read header
@@ -121,27 +117,27 @@ class ClientImageProcessor {
           console.log('Header info:', headerInfo);
           onProgress?.(40);
 
-          // Read file data
-          const fileData = this.readFileData(pixelData, headerInfo.totalHeaderSize, headerInfo.fileSize);
-          console.log('File data length:', fileData.length, 'Expected:', headerInfo.fileSize);
+          // Read file data from image
+          const fileDataFromImage = this.readFileData(pixelData, headerInfo.totalHeaderSize, headerInfo.fileSize);
+          console.log('File data length:', fileDataFromImage.length, 'Expected:', headerInfo.fileSize);
           onProgress?.(60);
 
-          // Verify hash
-          const computedHash = await this.computeSHA256(fileData);
-          if (!this.arraysEqual(computedHash, headerInfo.sha256Hash)) {
-            throw new Error('SHA256 hash mismatch. File may be corrupted.');
+          // Decrypt if needed
+          let finalData = fileDataFromImage;
+          if (headerInfo.isEncrypted) {
+            if (!password) {
+              throw new Error('File is encrypted but no password was provided.');
+            }
+            finalData = await this.decryptData(fileDataFromImage, password);
           }
           onProgress?.(80);
 
-          // Decrypt if needed
-          let finalData = fileData;
-          if (headerInfo.isEncrypted) {
-            if (!password) {
-              throw new Error('File is encrypted but no password provided.');
-            }
-            finalData = await this.decryptData(fileData, password);
+          // Verify hash on the plaintext data
+          const computedHash = await this.computeSHA256(finalData);
+          if (!this.arraysEqual(computedHash, headerInfo.sha256Hash)) {
+            throw new Error('SHA256 hash mismatch. File may be corrupted or the password may be incorrect.');
           }
-
+          
           onProgress?.(100);
           resolve({
             fileName: headerInfo.fileName,
