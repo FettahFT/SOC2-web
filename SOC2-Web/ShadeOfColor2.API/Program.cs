@@ -138,11 +138,11 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
     
     // Validate input
     if (string.IsNullOrWhiteSpace(password))
-        return Results.BadRequest(new { error = "Password is required" });
+        return Results.Text("Password is required", statusCode: 400);
 
-    var validationResult = ValidateUploadedFile(file!);
-    if (validationResult != null)
-        return validationResult;
+    var validationError = ValidateUploadedFile(file!);
+    if (validationError != null)
+        return Results.Text(validationError, statusCode: 400);
         
     // Check available memory before processing large files
     var availableMemory = GC.GetTotalMemory(false);
@@ -227,19 +227,19 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
     }
     catch (ArgumentException ex)
     {
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.Text(ex.Message, statusCode: 400);
     }
     catch (OutOfMemoryException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Hide endpoint OOM: {ex.Message}");
         GC.Collect();
-        return Results.BadRequest(new { error = "File too large for current server capacity. Try a smaller file." });
+        return Results.Text("File too large for current server capacity. Try a smaller file.", statusCode: 400);
     }
     catch (Exception ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Hide endpoint error: {ex.GetType().Name} - {ex.Message}");
         Console.WriteLine($"Stack trace: {ex.StackTrace}");
-        return Results.BadRequest(new { error = $"Processing failed: {ex.Message}" });
+        return Results.Text($"Processing failed: {ex.Message}", statusCode: 400);
     }
     finally
     {
@@ -265,9 +265,9 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string?
     Console.WriteLine($"[{startTime}] Extract endpoint accessed - Image: {image?.FileName}, Initial Memory: {initialMemory / 1024 / 1024}MB");
     
     // Validate input
-    var validationResult = ValidateUploadedImage(image!);
-    if (validationResult != null)
-        return validationResult;
+    var validationError = ValidateUploadedImage(image!);
+    if (validationError != null)
+        return Results.Text(validationError, statusCode: 400);
 
     Console.WriteLine($"[{DateTime.UtcNow}] Extract - Password provided: {!string.IsNullOrWhiteSpace(password)}");
 
@@ -310,24 +310,24 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string?
     catch (InvalidDataException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint - Invalid data: {ex.Message}");
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.Text(ex.Message, statusCode: 400);
     }
     catch (UnknownImageFormatException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint - Unknown image format: {ex.Message}");
-        return Results.BadRequest(new { error = "Image format not supported or file is corrupted" });
+        return Results.Text("Image format not supported or file is corrupted", statusCode: 400);
     }
     catch (OutOfMemoryException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint OOM: {ex.Message}");
         GC.Collect();
-        return Results.BadRequest(new { error = "Image too large for current server capacity. Try a smaller image." });
+        return Results.Text("Image too large for current server capacity. Try a smaller image.", statusCode: 400);
     }
     catch (Exception ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint error: {ex.GetType().Name} - {ex.Message}");
         Console.WriteLine($"Stack trace: {ex.StackTrace}");
-        return Results.BadRequest(new { error = $"Extraction failed: {ex.Message}" });
+        return Results.Text($"Extraction failed: {ex.Message}", statusCode: 400);
     }
     finally
     {
@@ -352,11 +352,11 @@ app.MapPost("/api/metadata", async (IFormFile image, IImageProcessor processor, 
     Console.WriteLine($"[{startTime}] Metadata endpoint accessed - Image: {image?.FileName}, Size: {image?.Length}");
 
     // Validate input
-    var validationResult = ValidateUploadedImage(image!);
-    if (validationResult != null)
+    var validationError = ValidateUploadedImage(image!);
+    if (validationError != null)
     {
-        Console.WriteLine($"[{DateTime.UtcNow}] Metadata validation failed: {validationResult}");
-        return validationResult;
+        Console.WriteLine($"[{DateTime.UtcNow}] Metadata validation failed: {validationError}");
+        return Results.Text(validationError, statusCode: 400);
     }
 
     try
@@ -378,13 +378,13 @@ app.MapPost("/api/metadata", async (IFormFile image, IImageProcessor processor, 
     catch (InvalidDataException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Metadata endpoint - Invalid data: {ex.Message}");
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.Text(ex.Message, statusCode: 400);
     }
     catch (Exception ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Metadata endpoint error: {ex.GetType().Name} - {ex.Message}");
         Console.WriteLine($"[{DateTime.UtcNow}] Stack trace: {ex.StackTrace}");
-        return Results.BadRequest(new { error = $"Metadata extraction failed: {ex.Message}" });
+        return Results.Text($"Metadata extraction failed: {ex.Message}", statusCode: 400);
     }
     finally
     {
@@ -400,31 +400,31 @@ app.MapPost("/api/metadata", async (IFormFile image, IImageProcessor processor, 
 app.Run();
 
 // Helper method for file validation
-static IResult? ValidateUploadedFile(IFormFile file)
+static string? ValidateUploadedFile(IFormFile file)
 {
     if (file == null || file.Length == 0)
-        return Results.BadRequest(new { error = "No file uploaded" });
-    
+        return "No file uploaded";
+
     if (file.Length > 10 * 1024 * 1024)
-        return Results.BadRequest(new { error = "File too large. Maximum size is 10MB for server stability." });
-    
+        return "File too large. Maximum size is 10MB for server stability.";
+
     if (string.IsNullOrWhiteSpace(file.FileName) || file.FileName.Length > 255)
-        return Results.BadRequest(new { error = "Invalid filename" });
-        
+        return "Invalid filename";
+
     return null;
 }
 
 // Helper method for image validation
-static IResult? ValidateUploadedImage(IFormFile image)
+static string? ValidateUploadedImage(IFormFile image)
 {
     if (image == null || image.Length == 0)
-        return Results.BadRequest(new { error = "No image uploaded" });
-    
+        return "No image uploaded";
+
     if (image.Length > 25 * 1024 * 1024)
-        return Results.BadRequest(new { error = "Image too large. Maximum size is 25MB for server stability." });
-    
+        return "Image too large. Maximum size is 25MB for server stability.";
+
     if (!image.ContentType.StartsWith("image/"))
-        return Results.BadRequest(new { error = "Invalid file type. Please upload an image." });
-        
+        return "Invalid file type. Please upload an image.";
+
     return null;
 }

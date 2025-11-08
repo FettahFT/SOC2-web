@@ -142,12 +142,7 @@ function App() {
             try {
               const text = await error.response.data.text();
               if (text) {
-                try {
-                  const parsed = JSON.parse(text);
-                  errorMessage = parsed.error || parsed.message || text;
-                } catch {
-                  errorMessage = text;
-                }
+                errorMessage = text.trim();
               } else {
                 errorMessage = `Server error (${status}) - no details provided`;
               }
