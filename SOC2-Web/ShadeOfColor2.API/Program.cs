@@ -197,14 +197,23 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor, Cance
         
         encodedImage.Dispose(); // Dispose immediately after saving
         
-        // Create response with proper PNG headers
-        return Results.File(
+        // Response is created above with memory cleanup
+        
+        Console.WriteLine($"[{DateTime.UtcNow}] Returning PNG file: {randomName}, size: {imageBytes.Length} bytes");
+        
+        var response = Results.File(
             imageBytes,
             "image/png",
             randomName
         );
         
-        Console.WriteLine($"[{DateTime.UtcNow}] Returning PNG file: {randomName}, size: {imageBytes.Length} bytes");
+        // Force memory cleanup
+        encodedImage?.Dispose();
+        Array.Clear(imageBytes, 0, imageBytes.Length);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        
+        return response;
     }
     catch (ArgumentException ex)
     {
@@ -277,14 +286,19 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageP
         context.Response.Headers["X-Original-Filename"] = originalFileName;
         
         // Create response and clear extracted data from memory immediately
+        var responseData = extractedFile.Data.ToArray(); // Create copy for response
         var response = Results.File(
-            extractedFile.Data,
+            responseData,
             "application/octet-stream",
             originalFileName
         );
         
-        // Clear the data array to free memory immediately
+        // Clear the data arrays to free memory immediately
         Array.Clear(extractedFile.Data, 0, extractedFile.Data.Length);
+        
+        // Force memory cleanup
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
         
         return response;
     }
