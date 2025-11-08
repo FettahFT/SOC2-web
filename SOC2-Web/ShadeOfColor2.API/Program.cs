@@ -151,7 +151,7 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
     {
         GC.Collect();
         GC.WaitForPendingFinalizers();
-        return Results.BadRequest(new { error = "Server memory pressure detected. Please try a smaller file or wait a moment." });
+        return Results.Ok("Server memory pressure detected. Please try a smaller file or wait a moment.");
     }
 
     try
@@ -190,7 +190,7 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
         {
             Console.WriteLine($"[{DateTime.UtcNow}] Failed to save PNG: {ex.Message}");
             Console.WriteLine($"[{DateTime.UtcNow}] Stack trace: {ex.StackTrace}");
-            return Results.BadRequest(new { error = $"Failed to create PNG image: {ex.Message}" });
+            return Results.Ok($"Failed to create PNG image: {ex.Message}");
         }
 
         // Verify image before disposal by reloading
@@ -278,7 +278,7 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string?
     {
         GC.Collect();
         GC.WaitForPendingFinalizers();
-        return Results.BadRequest(new { error = "Server memory pressure detected. Please try again in a moment." });
+        return Results.Ok("Server memory pressure detected. Please try again in a moment.");
     }
 
     try

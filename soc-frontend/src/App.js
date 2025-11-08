@@ -115,7 +115,20 @@ function App() {
       const text = await blob.text();
 
       // If the response looks like an error message (short text), show it as error
-      if (text.length < 200 && (text.includes("required") || text.includes("large") || text.includes("failed") || text.includes("invalid") || text.includes("corrupted"))) {
+      if (text.length < 500 && (
+        text.includes("required") ||
+        text.includes("large") ||
+        text.includes("failed") ||
+        text.includes("invalid") ||
+        text.includes("corrupted") ||
+        text.includes("provided") ||
+        text.includes("pressure") ||
+        text.includes("memory") ||
+        text.includes("detected") ||
+        text.includes("try") ||
+        text.includes("create") ||
+        text.includes("image")
+      )) {
         setProgress(100);
         setResult({
           success: false,
