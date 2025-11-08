@@ -82,7 +82,7 @@ function App() {
         const url = window.URL.createObjectURL(pngBlob);
         const link = document.createElement('a');
         link.href = url;
-        const filename = `image_${Math.random().toString(36).substring(2, 10)}.png`;
+        const filename = `${file.name}.png`;
         link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
