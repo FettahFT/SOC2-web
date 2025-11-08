@@ -170,7 +170,8 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor, Cance
         catch (Exception ex)
         {
             Console.WriteLine($"[{DateTime.UtcNow}] Failed to save PNG: {ex.Message}");
-            throw;
+            Console.WriteLine($"[{DateTime.UtcNow}] Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = $"Failed to create PNG image: {ex.Message}" });
         }
         
         // Verify image before disposal by reloading
@@ -196,11 +197,14 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor, Cance
         
         encodedImage.Dispose(); // Dispose immediately after saving
         
-        var response = Results.File(
+        // Set proper headers to prevent corruption
+        var response = Results.Bytes(
             imageBytes,
             "image/png",
             randomName
         );
+        
+        Console.WriteLine($"[{DateTime.UtcNow}] Returning PNG file: {randomName}, size: {imageBytes.Length} bytes");
         
         // Clear memory array immediately
         Array.Clear(imageBytes, 0, imageBytes.Length);
