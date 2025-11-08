@@ -135,7 +135,15 @@ function App() {
 
       if (error.response?.data) {
         if (error.response.data instanceof Blob) {
-          errorMessage = await error.response.data.text();
+          try {
+            const text = await error.response.data.text();
+            const parsed = JSON.parse(text);
+            errorMessage = parsed.error || parsed.message || text;
+          } catch {
+            errorMessage = await error.response.data.text();
+          }
+        } else if (typeof error.response.data === 'object') {
+          errorMessage = error.response.data.error || error.response.data.message || JSON.stringify(error.response.data);
         } else {
           errorMessage = error.response.data;
         }

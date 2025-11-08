@@ -254,21 +254,18 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
 .Produces(400);
 
 // Decode endpoint - extract file from image
-app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string password, IImageProcessor processor, CancellationToken cancellationToken) =>
+app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string? password, IImageProcessor processor, CancellationToken cancellationToken) =>
 {
     var startTime = DateTime.UtcNow;
     var initialMemory = GC.GetTotalMemory(false);
     Console.WriteLine($"[{startTime}] Extract endpoint accessed - Image: {image?.FileName}, Initial Memory: {initialMemory / 1024 / 1024}MB");
     
     // Validate input
-    if (string.IsNullOrWhiteSpace(password))
-        return Results.BadRequest(new { error = "Password is required" });
-
     var validationResult = ValidateUploadedImage(image!);
     if (validationResult != null)
         return validationResult;
 
-    Console.WriteLine($"[{DateTime.UtcNow}] Extract - Password provided: {true}");
+    Console.WriteLine($"[{DateTime.UtcNow}] Extract - Password provided: {!string.IsNullOrWhiteSpace(password)}");
 
     // Check available memory before processing large images
     var availableMemory = GC.GetTotalMemory(false);
