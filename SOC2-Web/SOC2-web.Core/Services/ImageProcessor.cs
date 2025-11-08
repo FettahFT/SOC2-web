@@ -29,19 +29,27 @@ public class ImageProcessor : IImageProcessor
 
     public async Task<Image<Rgba32>> CreateCarrierImageAsync(Stream fileData, string fileName, CancellationToken cancellationToken = default)
     {
-        // Stream file data in chunks to reduce memory usage
-        var fileSize = fileData.CanSeek ? fileData.Length : await GetStreamLengthAsync(fileData);
+        // Read file data once to avoid stream consumption issues
+        byte[] fileBytes;
+        if (fileData is MemoryStream ms)
+        {
+            fileBytes = ms.ToArray();
+        }
+        else
+        {
+            using var tempStream = new MemoryStream();
+            await fileData.CopyToAsync(tempStream, cancellationToken);
+            fileBytes = tempStream.ToArray();
+        }
+        
+        var fileSize = fileBytes.Length;
         
         // Validate file size early
         if (fileSize > MaxFileSize)
             throw new ArgumentException($"File too large. Maximum size is {MaxFileSize / (1024 * 1024)}MB.");
 
-        // Calculate SHA256 hash using streaming
-        var sha256Hash = await CalculateHashStreamingAsync(fileData, cancellationToken);
-        
-        // Reset stream for reading
-        if (fileData.CanSeek)
-            fileData.Position = 0;
+        // Calculate SHA256 hash from byte array
+        var sha256Hash = SHA256.HashData(fileBytes);
 
 
         
@@ -68,8 +76,8 @@ public class ImageProcessor : IImageProcessor
         WriteHeader(image, pixelIndex, fileSize, fileNameBytes, sha256Hash);
         pixelIndex += totalHeaderSize;
 
-        // Write file data using streaming
-        await WriteFileDataStreamingAsync(image, pixelIndex, fileData, cancellationToken);
+        // Write file data in chunks to reduce memory pressure
+        WriteFileDataInChunks(image, pixelIndex, fileBytes);
         
         // Force GC for large files
         if (fileSize > 10 * 1024 * 1024)
@@ -118,56 +126,26 @@ public class ImageProcessor : IImageProcessor
         WriteBytesToImage(image, startIndex, bytes);
     }
 
-    private async Task WriteFileDataStreamingAsync(Image<Rgba32> image, int startIndex, Stream fileData, CancellationToken cancellationToken)
+    private void WriteFileDataInChunks(Image<Rgba32> image, int startIndex, byte[] fileData)
     {
         const int chunkSize = 1024 * 1024; // 1MB chunks
-        var buffer = new byte[chunkSize];
         var currentIndex = startIndex;
-        int bytesRead;
         
-        while ((bytesRead = await fileData.ReadAsync(buffer, 0, chunkSize, cancellationToken)) > 0)
+        for (int i = 0; i < fileData.Length; i += chunkSize)
         {
-            var chunk = bytesRead == chunkSize ? buffer : buffer[..bytesRead];
+            var remainingBytes = Math.Min(chunkSize, fileData.Length - i);
+            var chunk = new byte[remainingBytes];
+            Array.Copy(fileData, i, chunk, 0, remainingBytes);
+            
             WriteBytesToImage(image, currentIndex, chunk);
-            currentIndex += bytesRead;
+            currentIndex += remainingBytes;
             
-            // Clear buffer for next read
-            if (bytesRead < chunkSize)
-                Array.Clear(buffer, bytesRead, chunkSize - bytesRead);
+            // Force GC every 5MB to manage memory
+            if (i > 0 && i % (5 * 1024 * 1024) == 0)
+            {
+                GC.Collect();
+            }
         }
-    }
-    
-    private async Task<byte[]> CalculateHashStreamingAsync(Stream stream, CancellationToken cancellationToken)
-    {
-        using var sha256 = SHA256.Create();
-        const int bufferSize = 64 * 1024; // 64KB buffer
-        var buffer = new byte[bufferSize];
-        int bytesRead;
-        
-        while ((bytesRead = await stream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
-        {
-            sha256.TransformBlock(buffer, 0, bytesRead, null, 0);
-        }
-        
-        sha256.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-        return sha256.Hash ?? throw new InvalidOperationException("Hash calculation failed");
-    }
-    
-    private async Task<long> GetStreamLengthAsync(Stream stream)
-    {
-        if (stream.CanSeek)
-            return stream.Length;
-            
-        long totalBytes = 0;
-        var buffer = new byte[8192];
-        int bytesRead;
-        
-        while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-        {
-            totalBytes += bytesRead;
-        }
-        
-        return totalBytes;
     }
 
     private void WriteBytesToImage(Image<Rgba32> image, int startIndex, byte[] data)
