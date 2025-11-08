@@ -12,6 +12,19 @@ builder.Services.AddSingleton<IImageProcessor>(provider =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAntiforgery();
 
+// Configure request size limits
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 100 * 1024 * 1024; // 100MB
+    options.ValueLengthLimit = 100 * 1024 * 1024;
+    options.MemoryBufferThreshold = 2 * 1024 * 1024; // 2MB buffer
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100MB
+});
+
 // Add rate limiting
 builder.Services.AddRateLimiter(options =>
 {
@@ -154,6 +167,16 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
 {
     Console.WriteLine($"[{DateTime.UtcNow}] Hide endpoint accessed - File: {file?.FileName}");
     
+    // Check memory before processing
+    try
+    {
+        MemoryMonitor.ThrowIfMemoryCritical();
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 507);
+    }
+    
     // Validate input
     var validationResult = ValidateUploadedFile(file);
     if (validationResult != null)
@@ -162,7 +185,7 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
     try
     {
         using var fileStream = file.OpenReadStream();
-        var encodedImage = await processor.CreateCarrierImageAsync(
+        using var encodedImage = await processor.CreateCarrierImageAsync(
             fileStream, 
             Path.GetFileName(file.FileName)
         );
@@ -173,13 +196,17 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
         // Create memory stream for PNG data
         using var outputStream = new MemoryStream();
         await StreamingResponseHandler.StreamImageToPngAsync(encodedImage, outputStream, CancellationToken.None);
-        encodedImage.Dispose();
         
-        return Results.File(
+        var result = Results.File(
             outputStream.ToArray(),
             "image/png",
             randomName
         );
+        
+        // Force cleanup after large operation
+        GC.Collect(0, GCCollectionMode.Optimized);
+        
+        return result;
     }
     catch (ArgumentException ex)
     {
@@ -199,6 +226,16 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
 app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageProcessor processor) =>
 {
     Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint accessed - Image: {image?.FileName}");
+    
+    // Check memory before processing
+    try
+    {
+        MemoryMonitor.ThrowIfMemoryCritical();
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 507);
+    }
     
     // Validate input
     var validationResult = ValidateUploadedImage(image);

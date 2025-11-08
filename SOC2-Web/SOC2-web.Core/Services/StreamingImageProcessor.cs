@@ -22,6 +22,12 @@ public class StreamingImageProcessor : IImageProcessor
 
     public async Task<Image<Rgba32>> CreateCarrierImageAsync(Stream fileData, string fileName, CancellationToken cancellationToken = default)
     {
+        // Force cleanup before processing
+        if (MemoryMonitor.IsMemoryPressureHigh())
+        {
+            MemoryMonitor.ForceCleanup();
+        }
+        
         // Phase 1: Analyze file stream to get size and hash
         var analysis = await FileStreamAnalyzer.AnalyzeAsync(fileData, cancellationToken);
         
@@ -56,11 +62,15 @@ public class StreamingImageProcessor : IImageProcessor
             // Phase 2: Stream file data to image pixels
             await StreamFileDataToImage(image, analysis.ResetStream, totalHeaderSize, cancellationToken);
             
+            // Force cleanup after processing
+            GC.Collect(0, GCCollectionMode.Optimized);
+            
             return image;
         }
         catch
         {
-            image.Dispose();
+            image?.Dispose();
+            MemoryMonitor.ForceCleanup();
             throw;
         }
     }
