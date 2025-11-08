@@ -1,6 +1,7 @@
 using ShadeOfColor2.Core.Services;
 using System.Net.Mime;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Png;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -192,14 +193,15 @@ app.MapPost("/api/hide", async (IFormFile? file, ITrueStreamingImageProcessor pr
         
         // Get file analysis for dimensions
         var analysis = await FileStreamAnalyzer.AnalyzeAsync(fileStream, CancellationToken.None);
-        var (width, height) = StreamingPixelGenerator.CalculateImageDimensions(analysis.Size, Path.GetFileName(file.FileName));
+        var fileName = Path.GetFileName(file.FileName) ?? "unknown";
+        var (width, height) = StreamingPixelGenerator.CalculateImageDimensions(analysis.Size, fileName);
         
         // Create image using streaming pixel generation
-        using var image = new Image<Rgba32>(width, height, Color.White);
+        using var image = new Image<Rgba32>(width, height);
         var totalPixels = width * height;
         var pixelIndex = 0;
         
-        await foreach (var pixel in StreamingPixelGenerator.GeneratePixelsAsync(fileStream, Path.GetFileName(file.FileName), totalPixels, CancellationToken.None))
+        await foreach (var pixel in StreamingPixelGenerator.GeneratePixelsAsync(fileStream, fileName, totalPixels, CancellationToken.None))
         {
             var row = pixelIndex / width;
             var col = pixelIndex % width;
@@ -262,7 +264,7 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile? image, IImage
 
     try
     {
-        using var imageStream = image.OpenReadStream();
+        using var imageStream = image!.OpenReadStream();
         var extractedFile = await processor.ExtractFileAsync(imageStream);
         
         // Use the original filename stored in the image (includes extension)
