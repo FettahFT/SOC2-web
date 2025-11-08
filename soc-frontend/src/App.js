@@ -131,43 +131,45 @@ function App() {
       });
     } catch (error) {
       setProgress(100);
-      console.error('Process error:', error);
       let errorMessage = 'An unexpected error occurred';
 
-      try {
-        if (error.response) {
-          console.log('Error response:', error.response);
-          const status = error.response.status;
-          errorMessage = `Server error (${status})`;
+      if (error.response) {
+        const status = error.response.status;
 
-          if (error.response.data) {
-            if (error.response.data instanceof Blob) {
+        // Try to get error message from response
+        if (error.response.data) {
+          if (error.response.data instanceof Blob) {
+            try {
               const text = await error.response.data.text();
-              console.log('Error response text:', text);
-              try {
-                const parsed = JSON.parse(text);
-                errorMessage = parsed.error || parsed.message || text;
-              } catch (parseError) {
-                errorMessage = text || errorMessage;
+              if (text) {
+                try {
+                  const parsed = JSON.parse(text);
+                  errorMessage = parsed.error || parsed.message || text;
+                } catch {
+                  errorMessage = text;
+                }
+              } else {
+                errorMessage = `Server error (${status}) - no details provided`;
               }
-            } else if (typeof error.response.data === 'object') {
-              errorMessage = error.response.data.error || error.response.data.message || JSON.stringify(error.response.data);
-            } else if (typeof error.response.data === 'string') {
-              errorMessage = error.response.data;
+            } catch {
+              errorMessage = `Server error (${status}) - unable to read response`;
             }
+          } else if (typeof error.response.data === 'object' && error.response.data.error) {
+            errorMessage = error.response.data.error;
+          } else if (typeof error.response.data === 'string') {
+            errorMessage = error.response.data;
+          } else {
+            errorMessage = `Server error (${status})`;
           }
-        } else if (error.request) {
-          console.log('Error request:', error.request);
-          errorMessage = 'Network error - unable to reach server';
         } else {
-          errorMessage = error.message || 'Unknown error';
+          errorMessage = `Server error (${status}) - empty response`;
         }
-      } catch (parseError) {
-        console.error('Error parsing error response:', parseError);
-        errorMessage = 'Failed to parse error response';
+      } else if (error.request) {
+        errorMessage = 'Network error - unable to reach server. Check your internet connection.';
+      } else {
+        errorMessage = error.message || 'Unknown error occurred';
       }
 
-      console.log('Final error message:', errorMessage);
       setResult({
         success: false,
         message: errorMessage
