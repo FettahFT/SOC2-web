@@ -197,13 +197,11 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor, Cance
         
         encodedImage.Dispose(); // Dispose immediately after saving
         
-        // Create custom response with proper headers to prevent corruption
-        return Results.Stream(
-            new MemoryStream(imageBytes),
-            "application/octet-stream",
-            randomName,
-            lastModified: DateTimeOffset.UtcNow,
-            entityTag: null
+        // Create response with proper PNG headers
+        return Results.File(
+            imageBytes,
+            "image/png",
+            randomName
         );
         
         Console.WriteLine($"[{DateTime.UtcNow}] Returning PNG file: {randomName}, size: {imageBytes.Length} bytes");
