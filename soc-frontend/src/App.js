@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Lock, Unlock, Upload, FileImage, CheckCircle, XCircle, Info } from 'lucide-react';
 import MatrixRain from './components/MatrixRain';
 import TypeWriter from './components/TypeWriter';
@@ -8,19 +7,12 @@ import './App.css';
 
 function App() {
   const [mode, setMode] = useState('crypt'); // 'crypt' or 'decrypt'
-
-
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
   const [showIntro, setShowIntro] = useState(true);
   const [dragActive, setDragActive] = useState(false);
-
-
-  const API_URL = process.env.REACT_APP_API_URL || '';
-
-
 
   useEffect(() => {
     const timer = setTimeout(() => setShowIntro(false), 2000);
@@ -44,12 +36,6 @@ function App() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const selectedFile = e.dataTransfer.files[0];
 
-      // File size validation (50MB limit)
-      if (selectedFile.size > 50 * 1024 * 1024) {
-        setResult({ success: false, message: 'File too large. Maximum size is 50MB.' });
-        return;
-      }
-
       // File type validation for decrypt mode
       if (mode === 'decrypt' && !selectedFile.type.includes('png')) {
         setResult({ success: false, message: 'Please select a PNG file for decryption.' });
@@ -65,12 +51,6 @@ function App() {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
 
-      // File size validation (50MB limit)
-      if (selectedFile.size > 50 * 1024 * 1024) {
-        setResult({ success: false, message: 'File too large. Maximum size is 50MB.' });
-        return;
-      }
-
       // File type validation for decrypt mode
       if (mode === 'decrypt' && !selectedFile.type.includes('png')) {
         setResult({ success: false, message: 'Please select a PNG file for decryption.' });
@@ -82,144 +62,27 @@ function App() {
     }
   };
 
-  const handleProcess = async (forceClientSide = false) => {
+  const handleProcess = async () => {
     if (!file) return;
 
     setLoading(true);
     setProgress(0);
     setResult(null);
 
-    const isLargeFile = file.size > 10 * 1024 * 1024; // 10MB
-    const useClientSide = isLargeFile || forceClientSide;
+    // All processing is now client-side
+    try {
+      if (mode === 'crypt') {
+        // Hide file in image
+        const pngBlob = await ClientImageProcessor.createCarrierImageAsync(
+          file,
+          null, // No password for now
+          (progress) => setProgress(progress)
+        );
 
-    if (useClientSide) {
-      // Client-side processing
-      try {
-        if (mode === 'crypt') {
-          // Hide file in image
-          const pngBlob = await ClientImageProcessor.createCarrierImageAsync(
-            file,
-            null, // No password for now
-            (progress) => setProgress(progress)
-          );
-
-          const url = window.URL.createObjectURL(pngBlob);
-          const link = document.createElement('a');
-          link.href = url;
-          const filename = `image_${Math.random().toString(36).substring(2, 10)}.png`;
-          link.setAttribute('download', filename);
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-
-          setProgress(100);
-          setResult({
-            success: true,
-            filename: filename,
-            size: `${(pngBlob.size / 1024 / 1024).toFixed(2)} MB`,
-            processing: 'client'
-          });
-        } else {
-          // Extract file from image
-          const extracted = await ClientImageProcessor.extractFileAsync(
-            file,
-            null, // No password for now
-            (progress) => setProgress(progress)
-          );
-
-          const blob = new Blob([extracted.data]);
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', extracted.fileName);
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-
-          setProgress(100);
-          setResult({
-            success: true,
-            filename: extracted.fileName,
-            size: `${(blob.size / 1024 / 1024).toFixed(2)} MB`,
-            processing: 'client'
-          });
-        }
-      } catch (error) {
-        setProgress(100);
-        setResult({
-          success: false,
-          message: error.message,
-          processing: 'client'
-        });
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // Server-side processing (existing code)
-      const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 10, 90));
-      }, 500);
-
-      const formData = new FormData();
-      formData.append(mode === 'crypt' ? 'file' : 'image', file);
-
-      try {
-        const endpoint = mode === 'crypt' ? '/api/hide' : '/api/extract';
-        const response = await axios.post(`${API_URL}${endpoint}`, formData, {
-          responseType: 'blob',
-        });
-
-        // Check if the response is an error message
-        const blob = response.data;
-        const text = await blob.text();
-
-        // Try to parse as JSON error response
-        try {
-          const parsed = JSON.parse(text);
-          if (parsed.error) {
-            setProgress(100);
-            setResult({
-              success: false,
-              message: parsed.error,
-              processing: 'server'
-            });
-            return;
-          }
-        } catch {
-          // Not JSON, check if it's a short error text
-          if (text.length < 500 && (
-            text.includes("required") ||
-            text.includes("large") ||
-            text.includes("failed") ||
-            text.includes("invalid") ||
-            text.includes("corrupted") ||
-            text.includes("provided") ||
-            text.includes("pressure") ||
-            text.includes("memory") ||
-            text.includes("detected") ||
-            text.includes("try") ||
-            text.includes("create") ||
-            text.includes("image")
-          )) {
-            setProgress(100);
-            setResult({
-              success: false,
-              message: text,
-              processing: 'server'
-            });
-            return;
-          }
-        }
-
-        // It's a successful file response
-        const url = window.URL.createObjectURL(blob);
+        const url = window.URL.createObjectURL(pngBlob);
         const link = document.createElement('a');
         link.href = url;
-
-        const filename = mode === 'crypt'
-          ? `image_${Math.random().toString(36).substring(2, 10)}.png`
-          : response.headers['x-original-filename'] || 'extracted_file';
-
+        const filename = `image_${Math.random().toString(36).substring(2, 10)}.png`;
         link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
@@ -229,58 +92,45 @@ function App() {
         setResult({
           success: true,
           filename: filename,
-          size: `${(blob.size / 1024 / 1024).toFixed(2)} MB`,
-          processing: 'server'
+          size: `${(pngBlob.size / 1024 / 1024).toFixed(2)} MB`,
+          processing: 'client'
         });
-      } catch (error) {
+      } else {
+        // Extract file from image
+        const extracted = await ClientImageProcessor.extractFileAsync(
+          file,
+          null, // No password for now
+          (progress) => setProgress(progress)
+        );
+
+        const blob = new Blob([extracted.data]);
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', extracted.fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
         setProgress(100);
-        let errorMessage = 'An unexpected error occurred';
-
-        if (error.response) {
-          const status = error.response.status;
-
-          // Try to get error message from response
-          if (error.response.data) {
-            if (error.response.data instanceof Blob) {
-              try {
-                const text = await error.response.data.text();
-                if (text) {
-                  errorMessage = text.trim();
-                } else {
-                  errorMessage = `Server error (${status}) - no details provided`;
-                }
-              } catch {
-                errorMessage = `Server error (${status}) - unable to read response`;
-              }
-            } else if (typeof error.response.data === 'object' && error.response.data.error) {
-              errorMessage = error.response.data.error;
-            } else if (typeof error.response.data === 'string') {
-              errorMessage = error.response.data;
-            } else {
-              errorMessage = `Server error (${status})`;
-            }
-          } else {
-            errorMessage = `Server error (${status}) - empty response`;
-          }
-        } else if (error.request) {
-          errorMessage = 'Network error - unable to reach server. Check your internet connection.';
-        } else {
-          errorMessage = error.message || 'Unknown error occurred';
-        }
-
         setResult({
-          success: false,
-          message: errorMessage,
-          processing: 'server'
+          success: true,
+          filename: extracted.fileName,
+          size: `${(blob.size / 1024 / 1024).toFixed(2)} MB`,
+          processing: 'client'
         });
-      } finally {
-        setLoading(false);
-        clearInterval(progressInterval);
       }
+    } catch (error) {
+      setProgress(100);
+      setResult({
+        success: false,
+        message: error.message,
+        processing: 'client'
+      });
+    } finally {
+      setLoading(false);
     }
   };
-
-
 
   return (
     <div className="min-h-screen bg-black text-green-400 font-mono relative overflow-hidden">
@@ -307,7 +157,7 @@ function App() {
               SHADE_OF_COLOR_2
             </h1>
              <p className="text-sm text-green-500 tracking-widest">
-               &gt; FILE STEGANOGRAPHY SYSTEM v2.0 (NO ENCRYPTION)
+               &gt; FILE STEGANOGRAPHY SYSTEM v2.1 (CLIENT-SIDE ONLY)
              </p>
           </div>
         </header>
@@ -340,7 +190,6 @@ function App() {
         {/* Main Interface */}
         <div className="max-w-4xl mx-auto">
           <div className="backdrop-blur-2xl bg-gradient-to-br from-black/50 to-green-950/10 border border-green-500/30 rounded-2xl p-8 shadow-[0_0_50px_rgba(0,255,65,0.2)]">
-
 
             {/* Upload Area */}
             <div
@@ -379,7 +228,7 @@ function App() {
                      </p>
                      <p className="text-sm text-green-700">or click to browse</p>
                       <p className="text-xs text-green-800 mt-2">
-                        Max: {mode === 'crypt' ? '10MB files (server) / Unlimited (client)' : '25MB images (server) / Unlimited (client)'}
+                        Processing is done in your browser. Your files are never uploaded.
                       </p>
                   </>
                 )}
@@ -407,7 +256,6 @@ function App() {
                       <span className="flex items-center justify-center gap-3">
                         {mode === 'crypt' ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
                         {mode === 'crypt' ? 'HIDE IN PNG' : 'EXTRACT FROM PNG'}
-                        {file.size > 10 * 1024 * 1024 && <span className="text-xs">(Client-side)</span>}
                       </span>
                   )}
 
@@ -419,17 +267,6 @@ function App() {
                     />
                   )}
                 </button>
-
-                {/* Test Button for small files */}
-                {file.size <= 10 * 1024 * 1024 && (
-                  <button
-                    onClick={() => handleProcess(true)} // Force client-side
-                    disabled={loading}
-                    className="w-full py-2 px-4 text-sm font-bold rounded-lg border border-green-500/40 text-green-400 hover:bg-green-500/10 transition-all duration-300"
-                  >
-                    TEST CLIENT-SIDE PROCESSING
-                  </button>
-                )}
               </div>
             )}
 
@@ -462,7 +299,7 @@ function App() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-green-600">Processing:</span>
-                            <span className="text-white">{result.processing === 'client' ? 'Client-side' : 'Server-side'}</span>
+                            <span className="text-white">Client-side</span>
                           </div>
                         </div>
                      ) : (
@@ -470,7 +307,7 @@ function App() {
                          <p className="text-red-400">{result.message}</p>
                          {result.processing && (
                            <p className="text-xs text-red-500 mt-1">
-                             Processed: {result.processing === 'client' ? 'Client-side' : 'Server-side'}
+                             Processed: Client-side
                            </p>
                          )}
                        </div>
@@ -488,9 +325,8 @@ function App() {
                 <div className="text-sm text-green-700 space-y-2">
                   <p>&gt; Hide any file inside a PNG image using steganography</p>
                   <p>&gt; Embedded metadata: signature, size, filename, SHA256 hash</p>
-                  <p>&gt; Cross-platform compatibility via ImageSharp (server) / Canvas API (client)</p>
+                  <p>&gt; All processing is now done 100% in your browser. Files are never uploaded.</p>
                   <p>&gt; Files are stored unencrypted for now</p>
-                  <p>&gt; Large files (&gt;10MB) processed client-side for unlimited capacity</p>
                   <p className="text-xs text-green-800 mt-4">
                     For privacy and experimentation. Use responsibly.
                   </p>

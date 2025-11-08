@@ -4,7 +4,7 @@
  */
 class ClientImageProcessor {
   static SIGNATURE = "SC";
-  static MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  static MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
   static BYTES_PER_PIXEL = 3; // Use only RGB channels, Alpha is always 255
   static SHA256_SIZE = 32;
   static CHUNK_SIZE = 1024 * 1024; // 1MB chunks for memory management
