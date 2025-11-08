@@ -2,6 +2,7 @@ using ShadeOfColor2.Core.Services;
 using System.Net.Mime;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -140,7 +141,7 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageP
         Console.WriteLine($"[{DateTime.UtcNow}] Extracted file: {originalFileName}");
         
         // Add custom header for reliable filename extraction
-        context.Response.Headers.Add("X-Original-Filename", originalFileName);
+        context.Response.Headers["X-Original-Filename"] = originalFileName;
         
         return Results.File(
             extractedFile.Data,
