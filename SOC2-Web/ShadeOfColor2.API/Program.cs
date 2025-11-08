@@ -15,7 +15,19 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:5173") // React/Vite defaults
+        policy.WithOrigins(
+            "http://localhost:3000", 
+            "http://localhost:5173",
+            "https://soc2-web.netlify.app"
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod();
+    });
+    
+    // Fallback policy - allow any origin
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -23,15 +35,22 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-app.UseCors("AllowFrontend");
+// Use the fallback CORS policy (allow all origins)
+app.UseCors("AllowAll");
 app.UseAntiforgery();
 
 // Health check
-app.MapGet("/", () => Results.Ok(new { status = "ShadeOfColor2 API is running" }));
+app.MapGet("/", () => 
+{
+    Console.WriteLine($"[{DateTime.UtcNow}] Health check accessed");
+    return Results.Ok(new { status = "ShadeOfColor2 API is running" });
+});
 
 // Encode endpoint - hide file in image
 app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
 {
+    Console.WriteLine($"[{DateTime.UtcNow}] Hide endpoint accessed - File: {file?.FileName}");
+    
     // Validate input
     var validationResult = ValidateUploadedFile(file);
     if (validationResult != null)
@@ -71,6 +90,8 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
 // Decode endpoint - extract file from image
 app.MapPost("/api/extract", async (IFormFile image, IImageProcessor processor) =>
 {
+    Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint accessed - Image: {image?.FileName}");
+    
     // Validate input
     var validationResult = ValidateUploadedImage(image);
     if (validationResult != null)
