@@ -139,11 +139,11 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
     
     // Validate input
     if (string.IsNullOrWhiteSpace(password))
-        return Results.Ok("Password is required");
+        return Results.Ok(new { error = "Password is required" });
 
     var validationError = ValidateUploadedFile(file!);
     if (validationError != null)
-        return Results.Ok(validationError);
+        return Results.Ok(new { error = validationError });
         
     // Check available memory before processing large files
     var availableMemory = GC.GetTotalMemory(false);
@@ -151,7 +151,7 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
     {
         GC.Collect();
         GC.WaitForPendingFinalizers();
-        return Results.Ok("Server memory pressure detected. Please try a smaller file or wait a moment.");
+        return Results.Ok(new { error = "Server memory pressure detected. Please try a smaller file or wait a moment." });
     }
 
     try
@@ -190,7 +190,7 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
         {
             Console.WriteLine($"[{DateTime.UtcNow}] Failed to save PNG: {ex.Message}");
             Console.WriteLine($"[{DateTime.UtcNow}] Stack trace: {ex.StackTrace}");
-            return Results.Ok($"Failed to create PNG image: {ex.Message}");
+            return Results.Ok(new { error = $"Failed to create PNG image: {ex.Message}" });
         }
 
         // Verify image before disposal by reloading
@@ -228,19 +228,19 @@ app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor
     }
     catch (ArgumentException ex)
     {
-        return Results.Ok(ex.Message);
+        return Results.Ok(new { error = ex.Message });
     }
     catch (OutOfMemoryException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Hide endpoint OOM: {ex.Message}");
         GC.Collect();
-        return Results.Ok("File too large for current server capacity. Try a smaller file.");
+        return Results.Ok(new { error = "File too large for current server capacity. Try a smaller file." });
     }
     catch (Exception ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Hide endpoint error: {ex.GetType().Name} - {ex.Message}");
         Console.WriteLine($"Stack trace: {ex.StackTrace}");
-        return Results.Ok($"Processing failed: {ex.Message}");
+        return Results.Ok(new { error = $"Processing failed: {ex.Message}" });
     }
     finally
     {
@@ -268,7 +268,7 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string?
     // Validate input
     var validationError = ValidateUploadedImage(image!);
     if (validationError != null)
-        return Results.Ok(validationError);
+        return Results.Ok(new { error = validationError });
 
     Console.WriteLine($"[{DateTime.UtcNow}] Extract - Password provided: {!string.IsNullOrWhiteSpace(password)}");
 
@@ -278,7 +278,7 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string?
     {
         GC.Collect();
         GC.WaitForPendingFinalizers();
-        return Results.Ok("Server memory pressure detected. Please try again in a moment.");
+        return Results.Ok(new { error = "Server memory pressure detected. Please try again in a moment." });
     }
 
     try
@@ -311,24 +311,24 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, string?
     catch (InvalidDataException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint - Invalid data: {ex.Message}");
-        return Results.Ok(ex.Message);
+        return Results.Ok(new { error = ex.Message });
     }
     catch (UnknownImageFormatException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint - Unknown image format: {ex.Message}");
-        return Results.Ok("Image format not supported or file is corrupted");
+        return Results.Ok(new { error = "Image format not supported or file is corrupted" });
     }
     catch (OutOfMemoryException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint OOM: {ex.Message}");
         GC.Collect();
-        return Results.Ok("Image too large for current server capacity. Try a smaller image.");
+        return Results.Ok(new { error = "Image too large for current server capacity. Try a smaller image." });
     }
     catch (Exception ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint error: {ex.GetType().Name} - {ex.Message}");
         Console.WriteLine($"Stack trace: {ex.StackTrace}");
-        return Results.Ok($"Extraction failed: {ex.Message}");
+        return Results.Ok(new { error = $"Extraction failed: {ex.Message}" });
     }
     finally
     {
@@ -357,7 +357,7 @@ app.MapPost("/api/metadata", async (IFormFile image, IImageProcessor processor, 
     if (validationError != null)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Metadata validation failed: {validationError}");
-        return Results.Ok(validationError);
+        return Results.Ok(new { error = validationError });
     }
 
     try
@@ -379,13 +379,13 @@ app.MapPost("/api/metadata", async (IFormFile image, IImageProcessor processor, 
     catch (InvalidDataException ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Metadata endpoint - Invalid data: {ex.Message}");
-        return Results.Ok(ex.Message);
+        return Results.Ok(new { error = ex.Message });
     }
     catch (Exception ex)
     {
         Console.WriteLine($"[{DateTime.UtcNow}] Metadata endpoint error: {ex.GetType().Name} - {ex.Message}");
         Console.WriteLine($"[{DateTime.UtcNow}] Stack trace: {ex.StackTrace}");
-        return Results.Ok($"Metadata extraction failed: {ex.Message}");
+        return Results.Ok(new { error = $"Metadata extraction failed: {ex.Message}" });
     }
     finally
     {

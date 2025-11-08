@@ -114,27 +114,40 @@ function App() {
       const blob = response.data;
       const text = await blob.text();
 
-      // If the response looks like an error message (short text), show it as error
-      if (text.length < 500 && (
-        text.includes("required") ||
-        text.includes("large") ||
-        text.includes("failed") ||
-        text.includes("invalid") ||
-        text.includes("corrupted") ||
-        text.includes("provided") ||
-        text.includes("pressure") ||
-        text.includes("memory") ||
-        text.includes("detected") ||
-        text.includes("try") ||
-        text.includes("create") ||
-        text.includes("image")
-      )) {
-        setProgress(100);
-        setResult({
-          success: false,
-          message: text
-        });
-        return;
+      // Try to parse as JSON error response
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed.error) {
+          setProgress(100);
+          setResult({
+            success: false,
+            message: parsed.error
+          });
+          return;
+        }
+      } catch {
+        // Not JSON, check if it's a short error text
+        if (text.length < 500 && (
+          text.includes("required") ||
+          text.includes("large") ||
+          text.includes("failed") ||
+          text.includes("invalid") ||
+          text.includes("corrupted") ||
+          text.includes("provided") ||
+          text.includes("pressure") ||
+          text.includes("memory") ||
+          text.includes("detected") ||
+          text.includes("try") ||
+          text.includes("create") ||
+          text.includes("image")
+        )) {
+          setProgress(100);
+          setResult({
+            success: false,
+            message: text
+          });
+          return;
+        }
       }
 
       // It's a successful file response
