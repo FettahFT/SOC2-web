@@ -1,60 +1,41 @@
 using ShadeOfColor2.Core.Services;
 using System.Net.Mime;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Png;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Register services
-builder.Services.AddSingleton<StreamingConfiguration>(new StreamingConfiguration());
-builder.Services.AddSingleton<ITrueStreamingImageProcessor, TrueStreamingImageProcessor>();
-builder.Services.AddSingleton<IImageProcessor>(provider => provider.GetRequiredService<ITrueStreamingImageProcessor>());
+builder.Services.AddSingleton<IImageProcessor, ImageProcessor>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAntiforgery();
-
-// Configure request size limits
-builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
-{
-    options.MultipartBodyLengthLimit = 100 * 1024 * 1024; // 100MB
-    options.ValueLengthLimit = 100 * 1024 * 1024;
-    options.MemoryBufferThreshold = 2 * 1024 * 1024; // 2MB buffer
-});
-
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100MB
-});
 
 // Add rate limiting
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddPolicy("hide", context =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 10,
-                Window = TimeSpan.FromMinutes(1)
-            }));
+    options.AddFixedWindowLimiter("hide", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 10;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        limiterOptions.QueueLimit = 0;
+    });
     
-    options.AddPolicy("extract", context =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 15,
-                Window = TimeSpan.FromMinutes(1)
-            }));
+    options.AddFixedWindowLimiter("extract", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 15;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        limiterOptions.QueueLimit = 0;
+    });
     
-    options.AddPolicy("health", context =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 100,
-                Window = TimeSpan.FromMinutes(1)
-            }));
+    options.AddFixedWindowLimiter("health", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 100;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        limiterOptions.QueueLimit = 0;
+    });
 });
 
 // Add CORS for frontend
@@ -86,31 +67,6 @@ var app = builder.Build();
 // Use the fallback CORS policy (allow all origins)
 app.UseCors("AllowAll");
 app.UseRateLimiter();
-
-// Global error handling for streaming
-app.Use(async (context, next) =>
-{
-    try
-    {
-        await next();
-    }
-    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
-    {
-        context.Response.StatusCode = 499; // Client closed request
-    }
-    catch (TimeoutException)
-    {
-        context.Response.StatusCode = 408; // Request timeout
-        await context.Response.WriteAsync("Request timeout during file processing");
-    }
-    catch (OutOfMemoryException)
-    {
-        MemoryMonitor.ForceCleanup();
-        context.Response.StatusCode = 507; // Insufficient storage
-        await context.Response.WriteAsync("Insufficient memory to process file");
-    }
-});
-
 app.UseAntiforgery();
 
 // Health check
@@ -121,110 +77,32 @@ app.MapGet("/", () =>
 })
 .RequireRateLimiting("health");
 
-// Streaming health check
-app.MapGet("/health/streaming", () =>
-{
-    var metrics = StreamingMetrics.GetMetrics();
-    var memoryUsage = MemoryMonitor.GetCurrentMemoryUsage();
-    var isMemoryHigh = MemoryMonitor.IsMemoryPressureHigh();
-    
-    return Results.Ok(new 
-    {
-        status = "healthy",
-        streaming = new
-        {
-            requests = metrics.Streaming,
-            fallbacks = metrics.Fallback,
-            errors = metrics.Errors,
-            successRate = metrics.Streaming > 0 ? (double)(metrics.Streaming - metrics.Errors) / metrics.Streaming : 1.0
-        },
-        memory = new
-        {
-            currentBytes = memoryUsage,
-            currentMB = memoryUsage / (1024 * 1024),
-            highPressure = isMemoryHigh
-        }
-    });
-})
-.RequireRateLimiting("health");
-
-// Configuration endpoint
-app.MapGet("/config/streaming", (StreamingConfiguration config) =>
-{
-    return Results.Ok(new
-    {
-        streamingEnabled = config.EnableStreaming,
-        thresholdMB = config.StreamingThresholdBytes / (1024 * 1024),
-        maxFileSizeMB = config.MaxStreamingFileSize / (1024 * 1024),
-        timeoutSeconds = config.StreamTimeoutSeconds,
-        fallbackEnabled = config.EnableFallback,
-        maxConcurrentStreams = config.MaxConcurrentStreams
-    });
-})
-.RequireRateLimiting("health");
-
 // Encode endpoint - hide file in image
-app.MapPost("/api/hide", async (IFormFile? file, ITrueStreamingImageProcessor processor) =>
+app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
 {
     Console.WriteLine($"[{DateTime.UtcNow}] Hide endpoint accessed - File: {file?.FileName}");
     
-    // Check memory before processing
-    try
-    {
-        MemoryMonitor.ThrowIfMemoryCritical();
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.Problem(ex.Message, statusCode: 507);
-    }
-    
     // Validate input
-    var validationResult = ValidateUploadedFile(file!);
+    var validationResult = ValidateUploadedFile(file);
     if (validationResult != null)
         return validationResult;
 
     try
     {
+        using var fileStream = file.OpenReadStream();
+        var encodedImage = await processor.CreateCarrierImageAsync(
+            fileStream, 
+            Path.GetFileName(file.FileName)
+        );
+
+        using var outputStream = new MemoryStream();
+        await encodedImage.SaveAsPngAsync(outputStream);
+        
         // Generate random PNG name to hide original file type
         var randomName = $"image_{Guid.NewGuid().ToString("N")[..8]}.png";
-        
-        // Use streaming processing but create compatible PNG
-        using var fileStream = file.OpenReadStream();
-        
-        // Get file analysis for dimensions
-        var analysis = await FileStreamAnalyzer.AnalyzeAsync(fileStream, CancellationToken.None);
-        var fileName = Path.GetFileName(file.FileName) ?? "unknown";
-        var (width, height) = StreamingPixelGenerator.CalculateImageDimensions(analysis.Size, fileName);
-        
-        // Create image using streaming pixel generation
-        using var image = new Image<Rgba32>(width, height);
-        var totalPixels = width * height;
-        var pixelIndex = 0;
-        
-        await foreach (var pixel in StreamingPixelGenerator.GeneratePixelsAsync(fileStream, fileName, totalPixels, CancellationToken.None))
-        {
-            var row = pixelIndex / width;
-            var col = pixelIndex % width;
-            
-            if (row < height && col < width)
-            {
-                image[col, row] = new Rgba32(pixel.R, pixel.G, pixel.B, pixel.A);
-            }
-            
-            pixelIndex++;
-            if (pixelIndex >= totalPixels) break;
-        }
-        
-        // Use standard PNG encoding
-        using var outputStream = new MemoryStream();
-        await image.SaveAsPngAsync(outputStream);
-        
-        // Minimal cleanup
-        GC.Collect(0, GCCollectionMode.Optimized);
-        
         return Results.File(
-            outputStream.ToArray(),
-            "image/png",
+            outputStream.ToArray(), 
+            "image/png", 
             randomName
         );
     }
@@ -243,28 +121,18 @@ app.MapPost("/api/hide", async (IFormFile? file, ITrueStreamingImageProcessor pr
 .Produces(400);
 
 // Decode endpoint - extract file from image
-app.MapPost("/api/extract", async (HttpContext context, IFormFile? image, IImageProcessor processor) =>
+app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageProcessor processor) =>
 {
     Console.WriteLine($"[{DateTime.UtcNow}] Extract endpoint accessed - Image: {image?.FileName}");
     
-    // Check memory before processing
-    try
-    {
-        MemoryMonitor.ThrowIfMemoryCritical();
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.Problem(ex.Message, statusCode: 507);
-    }
-    
     // Validate input
-    var validationResult = ValidateUploadedImage(image!);
+    var validationResult = ValidateUploadedImage(image);
     if (validationResult != null)
         return validationResult;
 
     try
     {
-        using var imageStream = image!.OpenReadStream();
+        using var imageStream = image.OpenReadStream();
         var extractedFile = await processor.ExtractFileAsync(imageStream);
         
         // Use the original filename stored in the image (includes extension)
@@ -272,7 +140,7 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile? image, IImage
         Console.WriteLine($"[{DateTime.UtcNow}] Extracted file: {originalFileName}");
         
         // Add custom header for reliable filename extraction
-        context.Response.Headers["X-Original-Filename"] = originalFileName;
+        context.Response.Headers.Add("X-Original-Filename", originalFileName);
         
         return Results.File(
             extractedFile.Data,
@@ -297,7 +165,7 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile? image, IImage
 app.Run();
 
 // Helper method for file validation
-static IResult? ValidateUploadedFile(IFormFile? file)
+static IResult? ValidateUploadedFile(IFormFile file)
 {
     if (file == null || file.Length == 0)
         return Results.BadRequest(new { error = "No file uploaded" });
@@ -312,7 +180,7 @@ static IResult? ValidateUploadedFile(IFormFile? file)
 }
 
 // Helper method for image validation
-static IResult? ValidateUploadedImage(IFormFile? image)
+static IResult? ValidateUploadedImage(IFormFile image)
 {
     if (image == null || image.Length == 0)
         return Results.BadRequest(new { error = "No image uploaded" });

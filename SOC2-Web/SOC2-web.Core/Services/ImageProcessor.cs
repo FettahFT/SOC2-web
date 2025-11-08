@@ -10,11 +10,6 @@ public interface IImageProcessor
     Task<ExtractedFile> ExtractFileAsync(Stream imageStream, CancellationToken cancellationToken = default);
 }
 
-public interface ITrueStreamingImageProcessor : IImageProcessor
-{
-    Task CreateCarrierStreamAsync(Stream fileData, string fileName, Stream outputStream, CancellationToken cancellationToken = default);
-}
-
 public record ExtractedFile(string FileName, byte[] Data, byte[] Sha256Hash);
 
 public class ImageProcessor : IImageProcessor
