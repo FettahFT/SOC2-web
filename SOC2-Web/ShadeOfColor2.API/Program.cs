@@ -160,10 +160,27 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor, Cance
         
         // Convert to byte array to avoid disposal issues
         using var memoryStream = new MemoryStream();
-        await encodedImage.SaveAsync(memoryStream, new PngEncoder(), cancellationToken);
+        Console.WriteLine($"[{DateTime.UtcNow}] Saving image {encodedImage.Width}x{encodedImage.Height} to PNG");
+        
+        try
+        {
+            await encodedImage.SaveAsync(memoryStream, new PngEncoder(), cancellationToken);
+            Console.WriteLine($"[{DateTime.UtcNow}] PNG saved successfully, size: {memoryStream.Length} bytes");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[{DateTime.UtcNow}] Failed to save PNG: {ex.Message}");
+            throw;
+        }
         
         // Verify image before disposal by reloading
         var imageBytes = memoryStream.ToArray();
+        if (imageBytes.Length == 0)
+        {
+            Console.WriteLine($"[{DateTime.UtcNow}] ERROR: Generated PNG is empty!");
+            throw new InvalidOperationException("Generated PNG is empty");
+        }
+        
         try
         {
             using var verifyStream = new MemoryStream(imageBytes);
@@ -173,6 +190,7 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor, Cance
         catch (Exception ex)
         {
             Console.WriteLine($"[{DateTime.UtcNow}] Encryption - Failed to reload saved image: {ex.Message}");
+            Console.WriteLine($"[{DateTime.UtcNow}] Image bytes length: {imageBytes.Length}, first 20 bytes: {Convert.ToHexString(imageBytes.Take(20).ToArray())}");
             throw new InvalidOperationException($"Generated image is invalid: {ex.Message}");
         }
         
