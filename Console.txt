@@ -1,0 +1,10 @@
+ClientImageProcessor.js:43 Header created, length: 56 First 10 bytes: Array(10)
+ClientImageProcessor.js:50 Total data length: 3909526 First 10 bytes: Array(10)
+ClientImageProcessor.js:56 Pixel count: 977382 Image size: 989 Total pixels needed: 978121
+ClientImageProcessor.js:332 Writing bytes to imageData, first 10 bytes: Array(10)
+ClientImageProcessor.js:343 After writing, imageData first 16 bytes: Array(16)
+ClientImageProcessor.js:300 Reading 2 bytes from pixelData starting at 0
+ClientImageProcessor.js:310 Byte 0: pixelIndex=0, offset=0, position=0, arrayIndex=0, value=82
+ClientImageProcessor.js:310 Byte 1: pixelIndex=1, offset=1, position=0, arrayIndex=1, value=67
+ClientImageProcessor.js:312 Read bytes: Array(2)
+ClientImageProcessor.js:257 Signature bytes read: Uint8Array(2) as chars: RC
