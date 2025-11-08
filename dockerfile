@@ -1,5 +1,13 @@
-# Build stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+# Build frontend
+FROM node:18 AS frontend-build
+WORKDIR /app
+COPY soc-frontend/package*.json ./
+RUN npm ci
+COPY soc-frontend/ ./
+RUN npm run build
+
+# Build backend
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS backend-build
 WORKDIR /src
 
 # Copy source files (excluding bin/obj via .dockerignore)
@@ -20,7 +28,9 @@ RUN apt-get update && apt-get install -y \
     libgdiplus \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /app/publish .
+COPY --from=backend-build /app/publish .
+COPY --from=frontend-build /app/build ./wwwroot
+
 EXPOSE 80
 ENV ASPNETCORE_URLS=http://+:80
 
