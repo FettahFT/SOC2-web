@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Unlock, Upload, FileImage, CheckCircle, XCircle, Info, KeyRound, ScanEye, Server, Image as ImageIcon } from 'lucide-react';
+import { Lock, Unlock, Upload, FileImage, CheckCircle, XCircle, KeyRound, ScanEye, Server, Image as ImageIcon } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
+import { Info } from 'lucide-react';
 import MatrixRain from './components/MatrixRain';
+// eslint-disable-next-line no-unused-vars
 import TypeWriter from './components/TypeWriter';
 import ClientImageProcessor from './services/ClientImageProcessor';
 import './App.css';
