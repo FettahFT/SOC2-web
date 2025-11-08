@@ -187,16 +187,35 @@ app.MapPost("/api/hide", async (IFormFile? file, ITrueStreamingImageProcessor pr
         // Generate random PNG name to hide original file type
         var randomName = $"image_{Guid.NewGuid().ToString("N")[..8]}.png";
         
-        // Create memory stream for compatibility
-        using var outputStream = new MemoryStream();
+        // Use streaming processing but create compatible PNG
         using var fileStream = file.OpenReadStream();
         
-        await processor.CreateCarrierStreamAsync(
-            fileStream, 
-            Path.GetFileName(file.FileName),
-            outputStream,
-            CancellationToken.None
-        );
+        // Get file analysis for dimensions
+        var analysis = await FileStreamAnalyzer.AnalyzeAsync(fileStream, CancellationToken.None);
+        var (width, height) = StreamingPixelGenerator.CalculateImageDimensions(analysis.Size, Path.GetFileName(file.FileName));
+        
+        // Create image using streaming pixel generation
+        using var image = new Image<Rgba32>(width, height, Color.White);
+        var totalPixels = width * height;
+        var pixelIndex = 0;
+        
+        await foreach (var pixel in StreamingPixelGenerator.GeneratePixelsAsync(fileStream, Path.GetFileName(file.FileName), totalPixels, CancellationToken.None))
+        {
+            var row = pixelIndex / width;
+            var col = pixelIndex % width;
+            
+            if (row < height && col < width)
+            {
+                image[col, row] = new Rgba32(pixel.R, pixel.G, pixel.B, pixel.A);
+            }
+            
+            pixelIndex++;
+            if (pixelIndex >= totalPixels) break;
+        }
+        
+        // Use standard PNG encoding
+        using var outputStream = new MemoryStream();
+        await image.SaveAsPngAsync(outputStream);
         
         // Minimal cleanup
         GC.Collect(0, GCCollectionMode.Optimized);
