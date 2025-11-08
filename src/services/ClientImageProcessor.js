@@ -126,16 +126,23 @@ class ClientImageProcessor {
           let finalData = fileDataFromImage;
           if (headerInfo.isEncrypted) {
             if (!password) {
-              throw new Error('File is encrypted but no password was provided.');
+              throw new Error('File is encrypted, but no password was provided.');
             }
-            finalData = await this.decryptData(fileDataFromImage, password);
+            try {
+              finalData = await this.decryptData(fileDataFromImage, password);
+            } catch (e) {
+              // This catch block is crucial. It catches errors from crypto.subtle.decrypt,
+              // which almost always means the password was wrong.
+              throw new Error('Decryption failed. The password may be incorrect.');
+            }
           }
           onProgress?.(80);
 
           // Verify hash on the plaintext data
           const computedHash = await this.computeSHA256(finalData);
           if (!this.arraysEqual(computedHash, headerInfo.sha256Hash)) {
-            throw new Error('SHA256 hash mismatch. File may be corrupted or the password may be incorrect.');
+            // If decryption succeeded but the hash is wrong, the file is corrupt.
+            throw new Error('SHA256 hash mismatch. The file is likely corrupted.');
           }
           
           onProgress?.(100);

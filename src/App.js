@@ -137,8 +137,8 @@ function App() {
         setResult({ success: true, filename: decryptedFilename, size: `${(blob.size / 1024 / 1024).toFixed(2)} MB` });
       }
     } catch (error) {
-      if (mode === 'decrypt' && error.message.includes('SHA256 hash mismatch')) {
-        setResult({ success: false, message: 'Incorrect Password or corrupted file. Please try again.' });
+      if (mode === 'decrypt' && error.message.includes('Decryption failed')) {
+        setResult({ success: false, message: 'Incorrect Password. Please try again.' });
         triggerPasswordShake();
       } else {
         setResult({ success: false, message: error.message });
