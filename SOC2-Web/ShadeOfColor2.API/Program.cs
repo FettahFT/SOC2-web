@@ -67,11 +67,12 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
         using var outputStream = new MemoryStream();
         await encodedImage.SaveAsPngAsync(outputStream);
         
-        var sanitizedFileName = Path.GetFileNameWithoutExtension(Path.GetFileName(file.FileName));
+        // Generate random PNG name to hide original file type
+        var randomName = $"carrier_{Guid.NewGuid().ToString("N")[..8]}.png";
         return Results.File(
             outputStream.ToArray(), 
             "image/png", 
-            $"encoded_{sanitizedFileName}.png"
+            randomName
         );
     }
     catch (ArgumentException ex)
@@ -102,11 +103,14 @@ app.MapPost("/api/extract", async (IFormFile image, IImageProcessor processor) =
         using var imageStream = image.OpenReadStream();
         var extractedFile = await processor.ExtractFileAsync(imageStream);
         
-        var sanitizedFileName = Path.GetFileName(extractedFile.FileName);
+        // Use the original filename stored in the image (includes extension)
+        var originalFileName = extractedFile.FileName;
+        Console.WriteLine($"[{DateTime.UtcNow}] Extracted file: {originalFileName}");
+        
         return Results.File(
             extractedFile.Data, 
             "application/octet-stream", 
-            sanitizedFileName
+            originalFileName
         );
     }
     catch (InvalidDataException ex)
