@@ -95,7 +95,7 @@ function App() {
       link.href = url;
       
       const filename = mode === 'crypt' 
-        ? `encoded_${file.name}.png`
+        ? `image_${Math.random().toString(36).substring(2, 10)}.png`
         : response.headers['content-disposition']?.split('filename=')[1]?.replace(/"/g, '') || 'extracted_file';
       
       link.setAttribute('download', filename);

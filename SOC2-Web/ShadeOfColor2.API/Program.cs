@@ -68,7 +68,7 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
         await encodedImage.SaveAsPngAsync(outputStream);
         
         // Generate random PNG name to hide original file type
-        var randomName = $"carrier_{Guid.NewGuid().ToString("N")[..8]}.png";
+        var randomName = $"image_{Guid.NewGuid().ToString("N")[..8]}.png";
         return Results.File(
             outputStream.ToArray(), 
             "image/png", 

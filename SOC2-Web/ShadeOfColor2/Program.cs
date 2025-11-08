@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using ShadeOfColor;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,7 +47,7 @@ app.MapPost("/api/hide", async (IFormFile file) =>
             File.Delete(tempInputPath);
             File.Delete(tempOutputPath);
             
-            return Results.File(result, "image/png", $"encoded_{file.FileName}.png");
+            return Results.File(result, "image/png", $"image_{Guid.NewGuid().ToString("N")[..8]}.png");
         }
         else
         {
@@ -77,29 +78,44 @@ app.MapPost("/api/extract", async (IFormFile image) =>
             await image.CopyToAsync(stream);
         }
 
-        // Run ShadeOfColor2 console app
-        var process = new Process
+        // Use FileToImage directly to get original filename
+        try
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "dotnet",
-                Arguments = $"ShadeOfColor2.dll -decrypt \"{tempImagePath}\" \"{tempOutputPath}\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            }
-        };
-
-        process.Start();
-        await process.WaitForExitAsync();
-
-        if (process.ExitCode == 0 && File.Exists(tempOutputPath))
-        {
-            var result = await File.ReadAllBytesAsync(tempOutputPath);
-            File.Delete(tempImagePath);
-            File.Delete(tempOutputPath);
+            var extractedPath = ShadeOfColor.FileToImage.DecryptImageToFile(tempImagePath, Path.GetTempPath());
+            var result = await File.ReadAllBytesAsync(extractedPath);
+            var originalFileName = Path.GetFileName(extractedPath);
             
-            return Results.File(result, "application/octet-stream", "extracted_file");
+            File.Delete(tempImagePath);
+            File.Delete(extractedPath);
+            
+            return Results.File(result, "application/octet-stream", originalFileName);
+        }
+        catch
+        {
+            // Fallback to process method
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "dotnet",
+                    Arguments = $"ShadeOfColor2.dll -decrypt \"{tempImagePath}\" \"{tempOutputPath}\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+
+            process.Start();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode == 0 && File.Exists(tempOutputPath))
+            {
+                var result = await File.ReadAllBytesAsync(tempOutputPath);
+                File.Delete(tempImagePath);
+                File.Delete(tempOutputPath);
+                
+                return Results.File(result, "application/octet-stream", "extracted_file");
+            }
         }
         else
         {
