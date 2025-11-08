@@ -3,6 +3,7 @@ using System.Net.Mime;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
