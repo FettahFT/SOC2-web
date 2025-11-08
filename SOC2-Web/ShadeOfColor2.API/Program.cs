@@ -12,10 +12,6 @@ using Microsoft.AspNetCore.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure port for Railway deployment
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
-
 // Configure request size limits
 builder.Services.Configure<IISServerOptions>(options =>
 {
@@ -128,6 +124,11 @@ app.MapGet("/", () =>
     return Results.Ok(new { status = "ShadeOfColor2 API is running" });
 })
 .RequireRateLimiting("health");
+
+// Handle OPTIONS for CORS preflight
+app.MapMethods("/api/hide", new[] { "OPTIONS" }, () => Results.Ok());
+app.MapMethods("/api/extract", new[] { "OPTIONS" }, () => Results.Ok());
+app.MapMethods("/api/metadata", new[] { "OPTIONS" }, () => Results.Ok());
 
 // Encode endpoint - hide file in image
 app.MapPost("/api/hide", async (IFormFile file, string password, IImageProcessor processor, CancellationToken cancellationToken) =>
