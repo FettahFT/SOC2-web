@@ -334,11 +334,12 @@ public class ImageProcessor : IImageProcessor
     {
         using var aes = Aes.Create();
         var key = new Rfc2898DeriveBytes(password, new byte[16], 10000, HashAlgorithmName.SHA256).GetBytes(32);
-        aes.Key = key;
-        aes.IV = new byte[16]; // For simplicity, using zero IV; in production, use random IV and store it
+        aes.GenerateIV(); // Generate random IV
+        var iv = aes.IV;
 
         using var encryptor = aes.CreateEncryptor();
         using var ms = new MemoryStream();
+        ms.Write(iv, 0, iv.Length); // Prepend IV
         using (var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
         {
             cs.Write(data, 0, data.Length);
@@ -350,11 +351,14 @@ public class ImageProcessor : IImageProcessor
     {
         using var aes = Aes.Create();
         var key = new Rfc2898DeriveBytes(password, new byte[16], 10000, HashAlgorithmName.SHA256).GetBytes(32);
-        aes.Key = key;
-        aes.IV = new byte[16];
+
+        // Extract IV from beginning
+        var iv = new byte[16];
+        Array.Copy(data, 0, iv, 0, 16);
+        aes.IV = iv;
 
         using var decryptor = aes.CreateDecryptor();
-        using var ms = new MemoryStream(data);
+        using var ms = new MemoryStream(data, 16, data.Length - 16); // Skip IV
         using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
         using var result = new MemoryStream();
         cs.CopyTo(result);

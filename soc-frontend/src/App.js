@@ -7,6 +7,12 @@ import './App.css';
 
 function App() {
   const [mode, setMode] = useState('crypt'); // 'crypt' or 'decrypt'
+
+  // Reset file encrypted status when mode changes
+  useEffect(() => {
+    setFileEncrypted(false);
+    setCheckingEncrypted(false);
+  }, [mode]);
   const [file, setFile] = useState(null);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,10 +21,12 @@ function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const [fileEncrypted, setFileEncrypted] = useState(false);
+  const [checkingEncrypted, setCheckingEncrypted] = useState(false);
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5046';
 
   const checkFileEncrypted = async (file) => {
+    setCheckingEncrypted(true);
     const formData = new FormData();
     formData.append('image', file);
 
@@ -26,8 +34,11 @@ function App() {
       const response = await axios.post(`${API_URL}/api/metadata`, formData);
       setFileEncrypted(response.data.isEncrypted);
     } catch (error) {
+      console.error('Metadata check failed:', error);
       // If metadata fails, assume not encrypted
       setFileEncrypted(false);
+    } finally {
+      setCheckingEncrypted(false);
     }
   };
 
@@ -107,6 +118,12 @@ function App() {
 
   const handleProcess = async () => {
     if (!file) return;
+
+    // Wait for encryption check if in progress
+    if (checkingEncrypted) {
+      setResult({ success: false, message: 'Checking file encryption status, please wait...' });
+      return;
+    }
 
     // Check password requirement for encrypted files
     if (mode === 'decrypt' && fileEncrypted && !password) {
@@ -239,7 +256,7 @@ function App() {
             {/* Password Input */}
             <div className="mb-6">
               <label htmlFor="password" className="block text-sm font-semibold text-green-400 mb-2">
-                Password {mode === 'crypt' ? '(optional for encryption)' : fileEncrypted ? '(required for this encrypted file)' : '(optional)'}
+                Password {mode === 'crypt' ? '(optional for encryption)' : checkingEncrypted ? '(checking file...)' : fileEncrypted ? '(required for this encrypted file)' : '(optional)'}
               </label>
               <input
                 type="password"
