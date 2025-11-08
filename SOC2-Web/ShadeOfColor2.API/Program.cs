@@ -7,8 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Register services
 builder.Services.AddSingleton<StreamingConfiguration>(new StreamingConfiguration());
-builder.Services.AddSingleton<IImageProcessor>(provider => 
-    new ResilientImageProcessor(provider.GetRequiredService<StreamingConfiguration>()));
+builder.Services.AddSingleton<ITrueStreamingImageProcessor, TrueStreamingImageProcessor>();
+builder.Services.AddSingleton<IImageProcessor>(provider => provider.GetRequiredService<ITrueStreamingImageProcessor>());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAntiforgery();
 
@@ -163,7 +163,7 @@ app.MapGet("/config/streaming", (StreamingConfiguration config) =>
 .RequireRateLimiting("health");
 
 // Encode endpoint - hide file in image
-app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
+app.MapPost("/api/hide", async (IFormFile file, ITrueStreamingImageProcessor processor) =>
 {
     Console.WriteLine($"[{DateTime.UtcNow}] Hide endpoint accessed - File: {file?.FileName}");
     
@@ -184,29 +184,27 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
 
     try
     {
-        using var fileStream = file.OpenReadStream();
-        using var encodedImage = await processor.CreateCarrierImageAsync(
-            fileStream, 
-            Path.GetFileName(file.FileName)
-        );
-        
         // Generate random PNG name to hide original file type
         var randomName = $"image_{Guid.NewGuid().ToString("N")[..8]}.png";
         
-        // Create memory stream for PNG data
-        using var outputStream = new MemoryStream();
-        await StreamingResponseHandler.StreamImageToPngAsync(encodedImage, outputStream, CancellationToken.None);
-        
-        var result = Results.File(
-            outputStream.ToArray(),
+        // True streaming - direct to HTTP response
+        return Results.Stream(
+            async (outputStream, cancellationToken) =>
+            {
+                using var fileStream = file.OpenReadStream();
+                await processor.CreateCarrierStreamAsync(
+                    fileStream, 
+                    Path.GetFileName(file.FileName),
+                    outputStream,
+                    cancellationToken
+                );
+                
+                // Minimal cleanup
+                GC.Collect(0, GCCollectionMode.Optimized);
+            },
             "image/png",
             randomName
         );
-        
-        // Force cleanup after large operation
-        GC.Collect(0, GCCollectionMode.Optimized);
-        
-        return result;
     }
     catch (ArgumentException ex)
     {

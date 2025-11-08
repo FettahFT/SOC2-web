@@ -2,8 +2,8 @@ namespace ShadeOfColor2.Core.Services;
 
 public static class MemoryMonitor
 {
-    private static readonly long MaxMemoryBytes = 200 * 1024 * 1024; // 200MB threshold
-    private static readonly long CriticalMemoryBytes = 400 * 1024 * 1024; // 400MB critical
+    private static readonly long MaxMemoryBytes = 100 * 1024 * 1024; // 100MB threshold
+    private static readonly long CriticalMemoryBytes = 200 * 1024 * 1024; // 200MB critical
     
     public static bool IsMemoryPressureHigh()
     {
