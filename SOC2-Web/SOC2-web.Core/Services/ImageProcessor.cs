@@ -30,19 +30,27 @@ public class ImageProcessor : IImageProcessor
 
     public async Task<Image<Rgba32>> CreateCarrierImageAsync(Stream fileData, string fileName, CancellationToken cancellationToken = default)
     {
-        // Get file size first
-        var fileSize = fileData.CanSeek ? fileData.Length : await GetStreamLengthAsync(fileData, cancellationToken);
+        // Read entire file into memory to avoid stream consumption issues
+        byte[] fileBytes;
+        if (fileData is MemoryStream ms && fileData.CanSeek)
+        {
+            fileBytes = ms.ToArray();
+        }
+        else
+        {
+            using var tempStream = new MemoryStream();
+            await fileData.CopyToAsync(tempStream, cancellationToken);
+            fileBytes = tempStream.ToArray();
+        }
+        
+        var fileSize = fileBytes.Length;
         
         // Validate file size early
         if (fileSize > MaxFileSize)
             throw new ArgumentException($"File too large. Maximum size is {MaxFileSize / (1024 * 1024)}MB.");
 
-        // Calculate SHA256 hash using streaming
-        var sha256Hash = await CalculateHashStreamingAsync(fileData, cancellationToken);
-        
-        // Reset stream position for reading
-        if (fileData.CanSeek)
-            fileData.Position = 0;
+        // Calculate SHA256 hash from byte array
+        var sha256Hash = SHA256.HashData(fileBytes);
 
 
         
@@ -69,8 +77,8 @@ public class ImageProcessor : IImageProcessor
         WriteHeader(image, pixelIndex, fileSize, fileNameBytes, sha256Hash);
         pixelIndex += totalHeaderSize;
 
-        // Write file data using streaming
-        await WriteFileDataStreamingAsync(image, pixelIndex, fileData, cancellationToken);
+        // Write file data from byte array
+        WriteBytesToImage(image, pixelIndex, fileBytes);
         
         // Force garbage collection after processing large file
         if (fileSize > 10 * 1024 * 1024) // 10MB+
@@ -119,58 +127,7 @@ public class ImageProcessor : IImageProcessor
         WriteBytesToImage(image, startIndex, bytes);
     }
 
-    private async Task WriteFileDataStreamingAsync(Image<Rgba32> image, int startIndex, Stream fileData, CancellationToken cancellationToken)
-    {
-        const int chunkSize = 1024 * 1024; // 1MB chunks
-        var buffer = new byte[chunkSize];
-        var currentIndex = startIndex;
-        int bytesRead;
-        
-        while ((bytesRead = await fileData.ReadAsync(buffer, 0, chunkSize, cancellationToken)) > 0)
-        {
-            // Only process the bytes actually read
-            var chunk = bytesRead == chunkSize ? buffer : buffer[..bytesRead];
-            WriteBytesToImage(image, currentIndex, chunk);
-            currentIndex += bytesRead;
-            
-            // Clear buffer for memory efficiency
-            Array.Clear(buffer, 0, bytesRead);
-        }
-    }
-    
-    private async Task<byte[]> CalculateHashStreamingAsync(Stream stream, CancellationToken cancellationToken)
-    {
-        using var sha256 = SHA256.Create();
-        const int bufferSize = 64 * 1024; // 64KB buffer
-        var buffer = new byte[bufferSize];
-        int bytesRead;
-        
-        while ((bytesRead = await stream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
-        {
-            sha256.TransformBlock(buffer, 0, bytesRead, null, 0);
-        }
-        
-        sha256.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-        return sha256.Hash ?? throw new InvalidOperationException("Hash calculation failed");
-    }
-    
-    private async Task<long> GetStreamLengthAsync(Stream stream, CancellationToken cancellationToken)
-    {
-        if (stream.CanSeek)
-            return stream.Length;
-            
-        // For non-seekable streams, count bytes without storing them
-        long totalBytes = 0;
-        var buffer = new byte[8192]; // 8KB buffer
-        int bytesRead;
-        
-        while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
-        {
-            totalBytes += bytesRead;
-        }
-        
-        return totalBytes;
-    }
+
 
     private void WriteBytesToImage(Image<Rgba32> image, int startIndex, byte[] data)
     {
