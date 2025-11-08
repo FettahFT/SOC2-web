@@ -237,13 +237,30 @@ class ClientImageProcessor {
   }
 
   static _readHeader(pixelData) {
-    const sigBytes = this._readBytesDirectly(pixelData, 0, 5);
-    const signature = String.fromCharCode(sigBytes[0], sigBytes[1]);
-    if (signature !== this.SIGNATURE) throw new Error('Invalid signature. Not a valid carrier image.');
+    // Try reading as LSB first, then fall back to direct reading
+    let sigBytes, encodingType, isCompressed, bitDepth, signature;
     
-    const encodingType = sigBytes[2];
-    const isCompressed = sigBytes[3] === 1;
-    const bitDepth = sigBytes[4];
+    try {
+      // First try reading with bit depth 1 (most common LSB)
+      sigBytes = this._readDataWithBitDepth(pixelData, 0, 5, 1);
+      signature = String.fromCharCode(sigBytes[0], sigBytes[1]);
+      if (signature === this.SIGNATURE) {
+        encodingType = sigBytes[2];
+        isCompressed = sigBytes[3] === 1;
+        bitDepth = sigBytes[4];
+      } else {
+        throw new Error('Not LSB encoded');
+      }
+    } catch {
+      // Fall back to direct reading for generated images
+      sigBytes = this._readBytesDirectly(pixelData, 0, 5);
+      signature = String.fromCharCode(sigBytes[0], sigBytes[1]);
+      if (signature !== this.SIGNATURE) throw new Error('Invalid signature. Not a valid carrier image.');
+      
+      encodingType = sigBytes[2];
+      isCompressed = sigBytes[3] === 1;
+      bitDepth = sigBytes[4];
+    }
 
     let readFunc = (encodingType === this.ENCODING_TYPE_LSB) 
       ? (offset, len) => this._readDataWithBitDepth(pixelData, offset, len, bitDepth)
