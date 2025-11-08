@@ -123,7 +123,7 @@ app.MapGet("/", () =>
 .RequireRateLimiting("health");
 
 // Encode endpoint - hide file in image
-app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
+app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor, CancellationToken cancellationToken) =>
 {
     var startTime = DateTime.UtcNow;
     var initialMemory = GC.GetTotalMemory(false);
@@ -148,7 +148,8 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
         using var fileStream = file.OpenReadStream();
         var encodedImage = await processor.CreateCarrierImageAsync(
             fileStream, 
-            Path.GetFileName(file.FileName)
+            Path.GetFileName(file.FileName),
+            cancellationToken
         );
 
         // Generate random PNG name to hide original file type
@@ -156,16 +157,21 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
         
         // Convert to byte array to avoid disposal issues
         using var memoryStream = new MemoryStream();
-        await encodedImage.SaveAsPngAsync(memoryStream);
+        await encodedImage.SaveAsPngAsync(memoryStream, cancellationToken);
         encodedImage.Dispose(); // Dispose immediately after saving
         
         var imageBytes = memoryStream.ToArray();
         
-        return Results.File(
+        var response = Results.File(
             imageBytes,
             "image/png",
             randomName
         );
+        
+        // Clear memory array immediately
+        Array.Clear(imageBytes, 0, imageBytes.Length);
+        
+        return response;
     }
     catch (ArgumentException ex)
     {
@@ -197,7 +203,7 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
 .Produces(400);
 
 // Decode endpoint - extract file from image
-app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageProcessor processor) =>
+app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageProcessor processor, CancellationToken cancellationToken) =>
 {
     var startTime = DateTime.UtcNow;
     var initialMemory = GC.GetTotalMemory(false);
@@ -220,7 +226,7 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageP
     try
     {
         using var imageStream = image.OpenReadStream();
-        var extractedFile = await processor.ExtractFileAsync(imageStream);
+        var extractedFile = await processor.ExtractFileAsync(imageStream, cancellationToken);
         
         // Use the original filename stored in the image (includes extension)
         var originalFileName = extractedFile.FileName;
@@ -229,12 +235,17 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageP
         // Add custom header for reliable filename extraction
         context.Response.Headers["X-Original-Filename"] = originalFileName;
         
-        // Return file directly
-        return Results.File(
+        // Create response and clear extracted data from memory immediately
+        var response = Results.File(
             extractedFile.Data,
             "application/octet-stream",
             originalFileName
         );
+        
+        // Clear the data array to free memory immediately
+        Array.Clear(extractedFile.Data, 0, extractedFile.Data.Length);
+        
+        return response;
     }
     catch (InvalidDataException ex)
     {

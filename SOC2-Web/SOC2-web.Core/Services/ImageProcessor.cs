@@ -202,6 +202,7 @@ public class ImageProcessor : IImageProcessor
     public async Task<ExtractedFile> ExtractFileAsync(Stream imageStream, CancellationToken cancellationToken = default)
     {
         Image<Rgba32>? image = null;
+        byte[]? fileData = null;
         try
         {
             // Reset stream position if possible
@@ -247,18 +248,27 @@ public class ImageProcessor : IImageProcessor
 
         // Read file data using streaming for large files
         var fileDataOffset = sha256Offset + Sha256HashSize;
-        var fileData = await ReadFileDataStreamingAsync(image, fileDataOffset, (int)fileSize, cancellationToken);
+        fileData = await ReadFileDataStreamingAsync(image, fileDataOffset, (int)fileSize, cancellationToken);
+
+        // Dispose image immediately after reading data
+        image.Dispose();
+        image = null;
 
         // Verify SHA256 hash
         var computedHash = SHA256.HashData(fileData);
         if (!computedHash.SequenceEqual(sha256Hash))
+        {
+            // Clear file data on hash mismatch
+            Array.Clear(fileData, 0, fileData.Length);
             throw new InvalidDataException("SHA256 hash mismatch. File may be corrupted.");
+        }
 
         // Force garbage collection for large files
-        if (fileSize > 10 * 1024 * 1024) // 10MB+
+        if (fileSize > 5 * 1024 * 1024) // 5MB+
         {
             GC.Collect();
             GC.WaitForPendingFinalizers();
+            GC.Collect();
         }
 
         return new ExtractedFile(fileName, fileData, sha256Hash);
@@ -267,34 +277,82 @@ public class ImageProcessor : IImageProcessor
         {
             throw new InvalidDataException($"Failed to extract file from image: {ex.Message}", ex);
         }
+        catch (OperationCanceledException)
+        {
+            // Clean up on cancellation
+            if (fileData != null)
+            {
+                Array.Clear(fileData, 0, fileData.Length);
+            }
+            throw;
+        }
         finally
         {
             // Ensure proper disposal
             image?.Dispose();
+            
+            // Force cleanup on cancellation or error
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
         }
     }
     
     private async Task<byte[]> ReadFileDataStreamingAsync(Image<Rgba32> image, int startIndex, int length, CancellationToken cancellationToken)
     {
-        const int chunkSize = 1024 * 1024; // 1MB chunks
+        const int chunkSize = 512 * 1024; // 512KB chunks for better CPU utilization
         var result = new byte[length];
         var processedBytes = 0;
         
-        while (processedBytes < length)
+        // Use parallel processing for large files
+        if (length > 10 * 1024 * 1024) // 10MB+
         {
-            var remainingBytes = length - processedBytes;
-            var currentChunkSize = Math.Min(chunkSize, remainingBytes);
+            var numChunks = (int)Math.Ceiling((double)length / chunkSize);
+            var tasks = new Task[Math.Min(numChunks, Environment.ProcessorCount)];
+            var chunkIndex = 0;
             
-            var chunk = ReadBytesFromImage(image, startIndex + processedBytes, currentChunkSize);
-            Array.Copy(chunk, 0, result, processedBytes, currentChunkSize);
+            for (int i = 0; i < tasks.Length; i++)
+            {
+                var taskIndex = i;
+                tasks[i] = Task.Run(() =>
+                {
+                    while (true)
+                    {
+                        var currentChunk = Interlocked.Increment(ref chunkIndex) - 1;
+                        if (currentChunk >= numChunks) break;
+                        
+                        var offset = currentChunk * chunkSize;
+                        var size = Math.Min(chunkSize, length - offset);
+                        
+                        if (cancellationToken.IsCancellationRequested)
+                            break;
+                            
+                        var chunk = ReadBytesFromImage(image, startIndex + offset, size);
+                        Array.Copy(chunk, 0, result, offset, size);
+                    }
+                }, cancellationToken);
+            }
             
-            processedBytes += currentChunkSize;
-            
-            // Yield control for cancellation and memory pressure
-            if (cancellationToken.IsCancellationRequested)
+            await Task.WhenAll(tasks);
+        }
+        else
+        {
+            // Sequential processing for smaller files
+            while (processedBytes < length)
+            {
+                var remainingBytes = length - processedBytes;
+                var currentChunkSize = Math.Min(chunkSize, remainingBytes);
+                
+                var chunk = ReadBytesFromImage(image, startIndex + processedBytes, currentChunkSize);
+                Array.Copy(chunk, 0, result, processedBytes, currentChunkSize);
+                
+                processedBytes += currentChunkSize;
+                
+                // Check cancellation more frequently
                 cancellationToken.ThrowIfCancellationRequested();
                 
-            await Task.Yield();
+                if (processedBytes % (2 * 1024 * 1024) == 0) // Every 2MB
+                    await Task.Yield();
+            }
         }
         
         return result;
