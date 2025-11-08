@@ -16,6 +16,7 @@ function App() {
   const [dragActive, setDragActive] = useState(false);
   const [metadata, setMetadata] = useState(null);
   const [metadataError, setMetadataError] = useState(null);
+  const [shakePassword, setShakePassword] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowIntro(false), 2000);
@@ -71,6 +72,11 @@ function App() {
     if (e.target.files && e.target.files[0]) {
       handleFileChangeAndDrop(e.target.files[0]);
     }
+  };
+  
+  const triggerPasswordShake = () => {
+    setShakePassword(true);
+    setTimeout(() => setShakePassword(false), 500);
   };
 
   const handleProcess = async () => {
@@ -131,7 +137,12 @@ function App() {
         setResult({ success: true, filename: decryptedFilename, size: `${(blob.size / 1024 / 1024).toFixed(2)} MB` });
       }
     } catch (error) {
-      setResult({ success: false, message: error.message });
+      if (mode === 'decrypt' && error.message.includes('SHA256 hash mismatch')) {
+        setResult({ success: false, message: 'Incorrect Password or corrupted file. Please try again.' });
+        triggerPasswordShake();
+      } else {
+        setResult({ success: false, message: error.message });
+      }
     } finally {
       setLoading(false);
       setProgress(100);
@@ -231,7 +242,7 @@ function App() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter Password (Optional)"
-                    className="w-full bg-black/30 border border-green-500/30 rounded-lg py-3 pr-4 pl-10 text-green-300 placeholder-green-700 focus:ring-1 focus:ring-green-500"
+                    className={`w-full bg-black/30 border border-green-500/30 rounded-lg py-3 pr-4 pl-10 text-green-300 placeholder-green-700 focus:ring-1 focus:ring-green-500 ${shakePassword ? 'shake' : ''}`}
                   />
                 </div>
 
