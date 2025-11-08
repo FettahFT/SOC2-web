@@ -69,7 +69,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
             "http://localhost:3000", 
             "http://localhost:5173",
-            "https://soc2-web.netlify.app"
+            "https://soc2-web.netlify.app",
+            "https://soc2-web-production.up.railway.app"
         )
         .AllowAnyHeader()
         .AllowAnyMethod();
@@ -87,8 +88,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Use the fallback CORS policy (allow all origins)
+// Use CORS before other middleware
 app.UseCors("AllowAll");
+
+// Add error handling middleware
+app.UseExceptionHandler("/error");
+app.Map("/error", () => Results.Problem("An internal server error occurred."));
 app.UseRateLimiter();
 app.UseAntiforgery();
 
@@ -111,6 +116,15 @@ app.MapPost("/api/hide", async (IFormFile file, IImageProcessor processor) =>
     var validationResult = ValidateUploadedFile(file);
     if (validationResult != null)
         return validationResult;
+        
+    // Check available memory before processing large files
+    var availableMemory = GC.GetTotalMemory(false);
+    if (file.Length > 20 * 1024 * 1024 && availableMemory > 800 * 1024 * 1024) // 20MB file, 800MB memory
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        return Results.BadRequest(new { error = "Server memory pressure detected. Please try again in a moment." });
+    }
 
     try
     {
@@ -166,6 +180,15 @@ app.MapPost("/api/extract", async (HttpContext context, IFormFile image, IImageP
     var validationResult = ValidateUploadedImage(image);
     if (validationResult != null)
         return validationResult;
+        
+    // Check available memory before processing large images
+    var availableMemory = GC.GetTotalMemory(false);
+    if (image.Length > 50 * 1024 * 1024 && availableMemory > 800 * 1024 * 1024) // 50MB image, 800MB memory
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        return Results.BadRequest(new { error = "Server memory pressure detected. Please try again in a moment." });
+    }
 
     try
     {
