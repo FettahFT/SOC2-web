@@ -60,7 +60,7 @@ class ClientImageProcessor {
     const canvas = document.createElement('canvas');
     canvas.width = imageSize;
     canvas.height = imageSize;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const ctx = canvas.getContext('2d');
 
 
     // Fill with opaque white background (alpha = 255)
@@ -72,18 +72,10 @@ class ClientImageProcessor {
     this.writeBytesToImageData(imageData.data, totalData);
     ctx.putImageData(imageData, 0, 0);
 
-    // --- DEBUGGING BLOCK ---
-    console.log("--- Verifying data on the SAME canvas immediately after writing ---");
-    try {
-        const readBackImageData = ctx.getImageData(0, 0, imageSize, imageSize);
-        const headerInfo = this.readHeader(readBackImageData.data);
-        console.log("--- SAME CANVAS VERIFICATION SUCCESS ---");
-        console.log("Read back header successfully:", headerInfo);
-    } catch (error) {
-        console.error("--- SAME CANVAS VERIFICATION FAILED ---");
-        console.error("Error reading back header immediately:", error);
-    }
-    // --- END DEBUGGING BLOCK ---
+    // --- DEBUGGING LOG: After putImageData on encoding canvas ---
+    const writtenImageData = ctx.getImageData(0, 0, imageSize, imageSize);
+    console.log('DEBUG (Encoding): Raw imageData after putImageData (first 16 bytes):', writtenImageData.data.slice(0, 16));
+    // --- END DEBUGGING LOG ---
 
     onProgress?.(90);
 
@@ -106,7 +98,7 @@ class ClientImageProcessor {
   static async extractFileAsync(imageFile, password = null, onProgress = null) {
     const img = new Image();
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const ctx = canvas.getContext('2d');
 
     return new Promise((resolve, reject) => {
       img.onload = async () => {
@@ -117,6 +109,10 @@ class ClientImageProcessor {
         try {
           const imageData = ctx.getImageData(0, 0, img.width, img.height);
           const pixelData = imageData.data;
+
+          // --- DEBUGGING LOG: After drawImage on decoding canvas ---
+          console.log('DEBUG (Decoding): Raw pixelData after drawImage (first 16 bytes):', pixelData.slice(0, 16));
+          // --- END DEBUGGING LOG ---
 
           onProgress?.(20);
 
@@ -169,7 +165,7 @@ class ClientImageProcessor {
   static async extractMetadataAsync(imageFile) {
     const img = new Image();
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const ctx = canvas.getContext('2d');
 
     return new Promise((resolve, reject) => {
       img.onload = () => {
