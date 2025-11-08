@@ -85,6 +85,12 @@ function App() {
   const handleProcess = async () => {
     if (!file) return;
 
+    // Require password for all operations
+    if (!password.trim()) {
+      setResult({ success: false, message: 'Password is required for all operations.' });
+      return;
+    }
+
     setLoading(true);
     setProgress(0);
     setResult(null);
@@ -96,9 +102,7 @@ function App() {
 
     const formData = new FormData();
     formData.append(mode === 'crypt' ? 'file' : 'image', file);
-    if (password.trim()) {
-      formData.append('password', password);
-    }
+    formData.append('password', password.trim());
 
     try {
       const endpoint = mode === 'crypt' ? '/api/hide' : '/api/extract';
@@ -210,7 +214,7 @@ function App() {
             {/* Password Input */}
             <div className="mb-6">
               <label htmlFor="password" className="block text-sm font-semibold text-green-400 mb-2">
-                Password (optional)
+                Password *
               </label>
               <input
                 type="password"
@@ -218,10 +222,11 @@ function App() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password for encryption/decryption"
+                required
                 className="w-full px-4 py-3 bg-black/50 border border-green-500/40 rounded-lg text-green-400 placeholder-green-600 focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 transition-all duration-300"
               />
               <p className="text-xs text-green-600 mt-1">
-                Leave empty for unencrypted files. Encrypted files require the correct password.
+                Password is required for all operations. Use the same password for encrypt/decrypt.
               </p>
             </div>
 
