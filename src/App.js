@@ -314,7 +314,7 @@ function App() {
           </div>
         </div>
         
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="liquid-glass-dark rounded-2xl p-4 sm:p-6 md:p-8 card-hover">
             <div className="scanline"></div>
             {mode === 'crypt' ? renderCryptMode() : renderDecryptMode()}
@@ -322,19 +322,19 @@ function App() {
               <div className="mt-6 space-y-4 animate-fade-in">
                 <div className="relative liquid-glass rounded-lg overflow-hidden">
                   <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-700 z-10" />
-                  <input 
-                    type="password" 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
-                    placeholder="Enter Password (Optional)" 
-                    className={`w-full bg-transparent border-0 rounded-lg py-3 pr-4 pl-10 text-green-300 placeholder-green-700 focus:ring-1 focus:ring-green-500 relative z-10 ${shakePassword ? 'shake' : ''}`} 
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter Password (Optional)"
+                    className={`w-full bg-transparent border-0 rounded-lg py-3 pr-4 pl-10 text-green-300 placeholder-green-700 focus:ring-1 focus:ring-green-500 relative z-10 ${shakePassword ? 'shake' : ''}`}
                   />
                 </div>
-                
+
                 <div className="relative">
-                  <button 
-                    onClick={handleProcess} 
-                    disabled={loading || payloadTooLargeError} 
+                  <button
+                    onClick={handleProcess}
+                    disabled={loading || payloadTooLargeError}
                     className={`w-full py-4 px-6 font-bold rounded-lg transition-all duration-300 tracking-wider relative overflow-hidden button-enhanced ${loading || payloadTooLargeError ? 'bg-gray-700/20 text-gray-400 border border-gray-500/40 cursor-not-allowed' : 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-black shadow-[0_0_30px_rgba(0,255,65,0.4)] hover:shadow-[0_0_50px_rgba(0,255,65,0.6)]'}`}
                   >
                     <span className="relative z-10 flex items-center justify-center gap-3">
@@ -352,12 +352,12 @@ function App() {
                       )}
                     </span>
                   </button>
-                  
+
                   {loading && (
                     <div className="mt-3">
                       <div className="progress-container">
-                        <div 
-                          className="progress-bar" 
+                        <div
+                          className="progress-bar"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -369,7 +369,7 @@ function App() {
                 </div>
               </div>
             )}
-            
+
             {result && !result.success && (
               <div className="mt-6 liquid-glass border rounded-xl p-4 sm:p-6 neon-border card-hover animate-fade-in border-red-500/60">
                 <div className="flex items-start gap-4">
@@ -387,9 +387,9 @@ function App() {
           </div>
         </div>
         
-        <div className="max-w-4xl mx-auto mt-8 animate-slide-in-left">
+        <div className="max-w-3xl mx-auto mt-8 animate-slide-in-left">
           <div className="liquid-glass-dark rounded-2xl p-4 sm:p-6 md:p-8 card-hover">
-            <h2 className="text-xl sm:text-2xl font-bold text-green-400 mb-6 text-center flex items-center justify-center gap-2">
+            <h2 className="text-lg sm:text-xl font-bold text-green-400 mb-6 text-center flex items-center justify-center gap-2">
               <span className="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
               &gt; HOW TO USE
             </h2>
