@@ -180,8 +180,8 @@ function App() {
     const capacityForDepth = (depth) => carrierImgSize ? Math.floor((carrierImgSize.width * carrierImgSize.height * 3 * depth) / 8) : 0;
     return (
       <>
-        <div className="max-w-2xl mx-auto mb-6 animate-slide-in-left">
-          <div className="liquid-glass rounded-xl p-1 neon-border">
+        <div className="max-w-2xl mx-auto mt-8 mb-8 animate-slide-in-left">
+          <div className="liquid-glass rounded-xl p-3 neon-border">
             <div className="mode-selector-container grid grid-cols-2 gap-1 sm:gap-2">
               <div className={`moving-border ${stegoMode === 'lsb' ? 'decrypt' : ''}`}></div>
               <button onClick={() => setStegoMode('generate')} className="mode-selector-button flex items-center justify-center gap-2 py-3 px-4 sm:py-4 sm:px-6 text-green-400 transition-all duration-300" style={{ outline: 'none', boxShadow: 'none', border: 'none', backgroundColor: 'transparent' }}>
